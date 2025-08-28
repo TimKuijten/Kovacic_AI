@@ -65,6 +65,8 @@ class Kovacic_Pipeline_Visualizer {
         add_action('wp_ajax_nopriv_kvt_create_process',[$this, 'ajax_create_process']);
         add_action('wp_ajax_kvt_assign_candidate',     [$this, 'ajax_assign_candidate']);
         add_action('wp_ajax_nopriv_kvt_assign_candidate',[$this, 'ajax_assign_candidate']);
+        add_action('wp_ajax_kvt_unassign_candidate',   [$this, 'ajax_unassign_candidate']);
+        add_action('wp_ajax_nopriv_kvt_unassign_candidate',[$this, 'ajax_unassign_candidate']);
 
         // Export
         add_action('admin_post_kvt_export',          [$this, 'handle_export']);
@@ -892,8 +894,14 @@ document.addEventListener('DOMContentLoaded', function(){
     card.addEventListener('dragend', ()=> card.classList.remove('dragging'));
 
     btnDel.addEventListener('click', ()=>{
-      if (!confirm('¿Mover a la papelera este candidato?')) return;
-      ajaxForm({action:'kvt_delete_candidate', _ajax_nonce:KVT_NONCE, id:String(c.id)})
+      if (!confirm('¿Quitar a este candidato del proceso/cliente actual?')) return;
+      ajaxForm({
+        action:'kvt_unassign_candidate',
+        _ajax_nonce:KVT_NONCE,
+        id:String(c.id),
+        client_id: selClient ? selClient.value || '' : '',
+        process_id: selProcess ? selProcess.value || '' : ''
+      })
         .then(j=>{
           if (!j.success) return alert(j.data && j.data.msg ? j.data.msg : 'No se pudo eliminar.');
           card.remove();
@@ -1171,6 +1179,14 @@ document.addEventListener('DOMContentLoaded', function(){
               b.textContent = show?'Ver perfil':'Ocultar';
             });
           });
+          items.forEach(it=>{
+            const card = modalList.querySelector('.kvt-card-mini[data-id="'+it.id+'"]');
+            if(card){
+              enableNotesHandlers(card, String(it.id));
+              enableProfileEditHandlers(card, String(it.id));
+              enableCvUploadHandlers(card, String(it.id));
+            }
+          });
       });
   }
   modalPrev && modalPrev.addEventListener('click', ()=>{ if(currentPage>1) listProfiles(currentPage-1); });
@@ -1301,7 +1317,9 @@ document.addEventListener('DOMContentLoaded', function(){
     btnNew && btnNew.addEventListener('click', ()=>{ newMenu.style.display = newMenu.style.display==='flex' ? 'none' : 'flex'; });
     document.addEventListener('click', e=>{ if(!btnNew.contains(e.target) && !newMenu.contains(e.target)) newMenu.style.display='none'; });
     els('#kvt_new_menu button').forEach(b=>{
-      b.addEventListener('click', ()=>{
+      b.addEventListener('click', e=>{
+        e.preventDefault();
+        e.stopPropagation();
         const act = b.dataset.action;
         newMenu.style.display='none';
         if(act==='candidate') openCModal();
@@ -1569,12 +1587,21 @@ JS;
         $q = new WP_Query($args);
         $items = [];
         foreach ($q->posts as $p) {
+            $notes_raw = get_post_meta($p->ID,'kvt_notes',true);
+            if ($notes_raw === '') $notes_raw = get_post_meta($p->ID,'notes',true);
             $items[] = [
                 'id'   => $p->ID,
                 'meta' => [
-                    'first_name' => $this->meta_get_compat($p->ID,'kvt_first_name',['first_name']),
-                    'last_name'  => $this->meta_get_compat($p->ID,'kvt_last_name',['last_name']),
-                    'email'      => $this->meta_get_compat($p->ID,'kvt_email',['email']),
+                    'first_name'  => $this->meta_get_compat($p->ID,'kvt_first_name',['first_name']),
+                    'last_name'   => $this->meta_get_compat($p->ID,'kvt_last_name',['last_name']),
+                    'email'       => $this->meta_get_compat($p->ID,'kvt_email',['email']),
+                    'phone'       => $this->meta_get_compat($p->ID,'kvt_phone',['phone']),
+                    'country'     => $this->meta_get_compat($p->ID,'kvt_country',['country']),
+                    'city'        => $this->meta_get_compat($p->ID,'kvt_city',['city']),
+                    'cv_url'      => $this->meta_get_compat($p->ID,'kvt_cv_url',['cv_url']),
+                    'cv_uploaded' => $this->fmt_date_ddmmyyyy($this->meta_get_compat($p->ID,'kvt_cv_uploaded',['cv_uploaded'])),
+                    'notes'       => $notes_raw,
+                    'notes_count' => $this->count_notes($notes_raw),
                 ],
             ];
         }
@@ -1719,6 +1746,22 @@ JS;
           }
           if ($client_id) wp_set_object_terms($id, [$client_id], self::TAX_CLIENT, true);
           if ($process_id) wp_set_object_terms($id, [$process_id], self::TAX_PROCESS, true);
+
+          wp_send_json_success(['id'=>$id]);
+      }
+
+      public function ajax_unassign_candidate() {
+          check_ajax_referer('kvt_nonce');
+
+          $id        = isset($_POST['id']) ? intval($_POST['id']) : 0;
+          $client_id = isset($_POST['client_id']) ? intval($_POST['client_id']) : 0;
+          $process_id= isset($_POST['process_id']) ? intval($_POST['process_id']) : 0;
+
+          if (!$id || get_post_type($id) !== self::CPT) {
+              wp_send_json_error(['msg'=>'Invalid candidate'],400);
+          }
+          if ($client_id) wp_remove_object_terms($id, [$client_id], self::TAX_CLIENT);
+          if ($process_id) wp_remove_object_terms($id, [$process_id], self::TAX_PROCESS);
 
           wp_send_json_success(['id'=>$id]);
       }
