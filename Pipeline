@@ -520,9 +520,6 @@ cv_uploaded|Fecha de subida");
                             <?php endforeach; ?>
                         </select>
                     </label>
-                    <label>Búsqueda
-                        <input type="text" id="kvt_search" placeholder="Nombre, email, ciudad o tag…">
-                    </label>
                     <button class="kvt-btn" id="kvt_refresh">Actualizar</button>
                 </div>
                 <div class="kvt-actions">
@@ -1105,7 +1102,7 @@ document.addEventListener('DOMContentLoaded', function(){
     params.set('_ajax_nonce', KVT_NONCE);
     params.set('client', selClient ? selClient.value : '');
     params.set('process', selProcess ? selProcess.value : '');
-    params.set('search', inpSearch.value);
+    params.set('search', inpSearch ? inpSearch.value : '');
     return fetch(KVT_AJAX, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:params.toString() }).then(r=>r.json());
   }
 
@@ -1152,7 +1149,7 @@ document.addEventListener('DOMContentLoaded', function(){
   function syncExportHidden(){
     el('#kvt_export_client').value  = selClient ? selClient.value : '';
     el('#kvt_export_process').value = selProcess ? selProcess.value : '';
-    el('#kvt_export_search').value  = inpSearch.value;
+    el('#kvt_export_search').value  = inpSearch ? inpSearch.value : '';
   }
 
   function updateSelectedInfo(){
@@ -1450,6 +1447,10 @@ JS;
         $process_id = isset($_POST['process']) ? intval($_POST['process']) : 0;
         $search     = isset($_POST['search'])  ? trim(sanitize_text_field($_POST['search'])) : '';
 
+        if (!$client_id && !$process_id && $search === '') {
+            wp_send_json_success([]);
+        }
+
         $tax_query = [];
         if ($process_id) {
             $tax_query[] = ['taxonomy'=>self::TAX_PROCESS,'field'=>'term_id','terms'=>[$process_id]];
@@ -1488,11 +1489,9 @@ JS;
                 ['key'=>'kvt_first_name','value'=>$search,'compare'=>'LIKE'],
                 ['key'=>'kvt_last_name', 'value'=>$search,'compare'=>'LIKE'],
                 ['key'=>'kvt_email',     'value'=>$search,'compare'=>'LIKE'],
-                ['key'=>'kvt_tags',      'value'=>$search,'compare'=>'LIKE'],
                 ['key'=>'first_name','value'=>$search,'compare'=>'LIKE'],
                 ['key'=>'last_name', 'value'=>$search,'compare'=>'LIKE'],
                 ['key'=>'email',     'value'=>$search,'compare'=>'LIKE'],
-                ['key'=>'tags',      'value'=>$search,'compare'=>'LIKE'],
             ];
             $args['s'] = $search;
         }
@@ -1657,13 +1656,11 @@ JS;
                 ['key'=>'kvt_email',     'value'=>$search,'compare'=>'LIKE'],
                 ['key'=>'kvt_country',   'value'=>$search,'compare'=>'LIKE'],
                 ['key'=>'kvt_city',      'value'=>$search,'compare'=>'LIKE'],
-                ['key'=>'kvt_tags',      'value'=>$search,'compare'=>'LIKE'],
                 ['key'=>'first_name','value'=>$search,'compare'=>'LIKE'],
                 ['key'=>'last_name', 'value'=>$search,'compare'=>'LIKE'],
                 ['key'=>'email',     'value'=>$search,'compare'=>'LIKE'],
                 ['key'=>'country',   'value'=>$search,'compare'=>'LIKE'],
                 ['key'=>'city',      'value'=>$search,'compare'=>'LIKE'],
-                ['key'=>'tags',      'value'=>$search,'compare'=>'LIKE'],
             ];
             $args['s'] = $search;
         }
