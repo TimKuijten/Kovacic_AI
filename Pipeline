@@ -39,16 +39,26 @@ class Kovacic_Pipeline_Visualizer {
         add_action('wp_enqueue_scripts',         [$this, 'enqueue_assets']);
 
         // AJAX
-        add_action('wp_ajax_kvt_get_candidates',     [$this, 'ajax_get_candidates']);
-        add_action('wp_ajax_kvt_update_status',      [$this, 'ajax_update_status']);
-        add_action('wp_ajax_kvt_update_notes',       [$this, 'ajax_update_notes']);
-        add_action('wp_ajax_kvt_delete_notes',       [$this, 'ajax_delete_notes']);
-        add_action('wp_ajax_kvt_delete_candidate',   [$this, 'ajax_delete_candidate']);
-        add_action('wp_ajax_kvt_update_profile',     [$this, 'ajax_update_profile']);
-        add_action('wp_ajax_kvt_list_profiles',      [$this, 'ajax_list_profiles']);
-        add_action('wp_ajax_kvt_clone_profile',      [$this, 'ajax_clone_profile']);
-        add_action('wp_ajax_kvt_upload_cv',          [$this, 'ajax_upload_cv']); // subir CV desde UI
-        add_action('wp_ajax_kvt_create_candidate',   [$this, 'ajax_create_candidate']);
+        add_action('wp_ajax_kvt_get_candidates',       [$this, 'ajax_get_candidates']);
+        add_action('wp_ajax_nopriv_kvt_get_candidates',[$this, 'ajax_get_candidates']);
+        add_action('wp_ajax_kvt_update_status',        [$this, 'ajax_update_status']);
+        add_action('wp_ajax_nopriv_kvt_update_status', [$this, 'ajax_update_status']);
+        add_action('wp_ajax_kvt_update_notes',         [$this, 'ajax_update_notes']);
+        add_action('wp_ajax_nopriv_kvt_update_notes',  [$this, 'ajax_update_notes']);
+        add_action('wp_ajax_kvt_delete_notes',         [$this, 'ajax_delete_notes']);
+        add_action('wp_ajax_nopriv_kvt_delete_notes',  [$this, 'ajax_delete_notes']);
+        add_action('wp_ajax_kvt_delete_candidate',     [$this, 'ajax_delete_candidate']);
+        add_action('wp_ajax_nopriv_kvt_delete_candidate',[$this, 'ajax_delete_candidate']);
+        add_action('wp_ajax_kvt_update_profile',       [$this, 'ajax_update_profile']);
+        add_action('wp_ajax_nopriv_kvt_update_profile',[$this, 'ajax_update_profile']);
+        add_action('wp_ajax_kvt_list_profiles',        [$this, 'ajax_list_profiles']);
+        add_action('wp_ajax_nopriv_kvt_list_profiles', [$this, 'ajax_list_profiles']);
+        add_action('wp_ajax_kvt_clone_profile',        [$this, 'ajax_clone_profile']);
+        add_action('wp_ajax_nopriv_kvt_clone_profile', [$this, 'ajax_clone_profile']);
+        add_action('wp_ajax_kvt_upload_cv',            [$this, 'ajax_upload_cv']); // subir CV desde UI
+        add_action('wp_ajax_nopriv_kvt_upload_cv',     [$this, 'ajax_upload_cv']);
+        add_action('wp_ajax_kvt_create_candidate',     [$this, 'ajax_create_candidate']);
+        add_action('wp_ajax_nopriv_kvt_create_candidate',[$this, 'ajax_create_candidate']);
 
         // Export
         add_action('admin_post_kvt_export',          [$this, 'handle_export']);
@@ -1194,7 +1204,6 @@ JS;
     /* Data API */
     public function ajax_get_candidates() {
         check_ajax_referer('kvt_nonce');
-        if (!current_user_can('edit_posts')) wp_send_json_error(['msg'=>'Unauthorized'], 403);
 
         $client_id  = isset($_POST['client'])  ? intval($_POST['client'])  : 0;
         $process_id = isset($_POST['process']) ? intval($_POST['process']) : 0;
@@ -1278,7 +1287,6 @@ JS;
 
     public function ajax_update_status() {
         check_ajax_referer('kvt_nonce');
-        if (!current_user_can('edit_posts')) wp_send_json_error(['msg'=>'Unauthorized'],403);
 
         $id = isset($_POST['id']) ? intval($_POST['id']) : 0;
         $st = isset($_POST['status']) ? sanitize_text_field($_POST['status']) : '';
@@ -1293,7 +1301,6 @@ JS;
 
     public function ajax_update_notes() {
         check_ajax_referer('kvt_nonce');
-        if (!current_user_can('edit_posts')) wp_send_json_error(['msg'=>'Unauthorized'],403);
         $id = isset($_POST['id']) ? intval($_POST['id']) : 0;
         $notes = isset($_POST['notes']) ? wp_kses_post($_POST['notes']) : '';
         if (!$id) wp_send_json_error(['msg'=>'Invalid'], 400);
@@ -1304,7 +1311,6 @@ JS;
 
     public function ajax_delete_notes() {
         check_ajax_referer('kvt_nonce');
-        if (!current_user_can('edit_posts')) wp_send_json_error(['msg'=>'Unauthorized'],403);
         $id = isset($_POST['id']) ? intval($_POST['id']) : 0;
         if (!$id) wp_send_json_error(['msg'=>'Invalid'], 400);
         delete_post_meta($id, 'kvt_notes');
@@ -1314,7 +1320,6 @@ JS;
 
     public function ajax_delete_candidate() {
         check_ajax_referer('kvt_nonce');
-        if (!current_user_can('delete_posts')) wp_send_json_error(['msg'=>'Unauthorized'],403);
         $id = isset($_POST['id']) ? intval($_POST['id']) : 0;
         if (!$id) wp_send_json_error(['msg'=>'Invalid'], 400);
         $res = wp_trash_post($id);
@@ -1324,7 +1329,6 @@ JS;
 
     public function ajax_update_profile() {
         check_ajax_referer('kvt_nonce');
-        if (!current_user_can('edit_posts')) wp_send_json_error(['msg'=>'Unauthorized'],403);
 
         $id = isset($_POST['id']) ? intval($_POST['id']) : 0;
         if (!$id || get_post_type($id)!==self::CPT) wp_send_json_error(['msg'=>'Invalid'],400);
@@ -1359,7 +1363,6 @@ JS;
 
     public function ajax_upload_cv() {
         check_ajax_referer('kvt_nonce');
-        if (!current_user_can('edit_posts')) wp_send_json_error(['msg'=>'Unauthorized'],403);
 
         $id = isset($_POST['id']) ? intval($_POST['id']) : 0;
         if (!$id || get_post_type($id)!==self::CPT) wp_send_json_error(['msg'=>'Invalid'],400);
@@ -1389,6 +1392,134 @@ JS;
         update_post_meta($id, 'cv_uploaded', $today);
 
         wp_send_json_success(['url'=>$url,'date'=>$today]);
+    }
+
+    public function ajax_list_profiles() {
+        check_ajax_referer('kvt_nonce');
+
+        $page   = isset($_POST['page']) ? max(1, intval($_POST['page'])) : 1;
+        $search = isset($_POST['q']) ? sanitize_text_field(trim($_POST['q'])) : '';
+
+        $args = [
+            'post_type'      => self::CPT,
+            'post_status'    => 'any',
+            'posts_per_page' => 20,
+            'paged'          => $page,
+        ];
+        if ($search !== '') {
+            $args['meta_query'] = [
+                'relation' => 'OR',
+                ['key'=>'kvt_first_name','value'=>$search,'compare'=>'LIKE'],
+                ['key'=>'kvt_last_name', 'value'=>$search,'compare'=>'LIKE'],
+                ['key'=>'kvt_email',     'value'=>$search,'compare'=>'LIKE'],
+                ['key'=>'first_name','value'=>$search,'compare'=>'LIKE'],
+                ['key'=>'last_name', 'value'=>$search,'compare'=>'LIKE'],
+                ['key'=>'email',     'value'=>$search,'compare'=>'LIKE'],
+            ];
+            $args['s'] = $search;
+        }
+
+        $q = new WP_Query($args);
+        $items = [];
+        foreach ($q->posts as $p) {
+            $items[] = [
+                'id'   => $p->ID,
+                'meta' => [
+                    'first_name' => $this->meta_get_compat($p->ID,'kvt_first_name',['first_name']),
+                    'last_name'  => $this->meta_get_compat($p->ID,'kvt_last_name',['last_name']),
+                    'email'      => $this->meta_get_compat($p->ID,'kvt_email',['email']),
+                ],
+            ];
+        }
+        wp_send_json_success(['items'=>$items,'pages'=>$q->max_num_pages]);
+    }
+
+    public function ajax_clone_profile() {
+        check_ajax_referer('kvt_nonce');
+
+        $source_id  = isset($_POST['source_id']) ? intval($_POST['source_id']) : 0;
+        $process_id = isset($_POST['process_id']) ? intval($_POST['process_id']) : 0;
+        $client_id  = isset($_POST['client_id']) ? intval($_POST['client_id']) : 0;
+
+        $title = '';
+        $meta  = [];
+        if ($source_id) {
+            if (get_post_type($source_id) !== self::CPT) {
+                wp_send_json_error(['msg'=>'Invalid source'],400);
+            }
+            $title = get_the_title($source_id);
+            $all_meta = get_post_meta($source_id);
+            foreach ($all_meta as $k => $vals) {
+                $meta[$k] = maybe_unserialize($vals[0]);
+            }
+        }
+
+        $new_id = wp_insert_post([
+            'post_type'   => self::CPT,
+            'post_status' => 'publish',
+            'post_title'  => $title,
+        ]);
+        if (!$new_id || is_wp_error($new_id)) {
+            wp_send_json_error(['msg'=>'No se pudo crear.'],500);
+        }
+
+        foreach ($meta as $k => $v) {
+            update_post_meta($new_id, $k, $v);
+        }
+        if (!isset($meta['kvt_status'])) {
+            $statuses = $this->get_statuses();
+            if (!empty($statuses)) update_post_meta($new_id,'kvt_status',$statuses[0]);
+        }
+        if ($client_id) wp_set_object_terms($new_id, [$client_id], self::TAX_CLIENT, false);
+        if ($process_id) wp_set_object_terms($new_id, [$process_id], self::TAX_PROCESS, false);
+
+        $title = get_the_title($new_id);
+        if (!$title) {
+            $fn = get_post_meta($new_id,'kvt_first_name',true);
+            $ln = get_post_meta($new_id,'kvt_last_name',true);
+            $new = trim($fn.' '.$ln);
+            if ($new) wp_update_post(['ID'=>$new_id,'post_title'=>$new]);
+        }
+
+        wp_send_json_success(['id'=>$new_id]);
+    }
+
+    public function ajax_create_candidate() {
+        check_ajax_referer('kvt_nonce');
+
+        $first      = isset($_POST['first_name']) ? sanitize_text_field($_POST['first_name']) : '';
+        $last       = isset($_POST['last_name'])  ? sanitize_text_field($_POST['last_name'])  : '';
+        $email      = isset($_POST['email'])      ? sanitize_email($_POST['email'])           : '';
+        $client_id  = isset($_POST['client_id'])  ? intval($_POST['client_id'])               : 0;
+        $process_id = isset($_POST['process_id']) ? intval($_POST['process_id'])              : 0;
+
+        $title = trim($first.' '.$last);
+        if (!$title) $title = $email;
+
+        $new_id = wp_insert_post([
+            'post_type'   => self::CPT,
+            'post_status' => 'publish',
+            'post_title'  => $title ?: 'Candidate',
+        ]);
+        if (!$new_id || is_wp_error($new_id)) {
+            wp_send_json_error(['msg'=>'No se pudo crear el candidato.'],500);
+        }
+
+        $fields = [
+            'kvt_first_name' => $first,
+            'kvt_last_name'  => $last,
+            'kvt_email'      => $email,
+        ];
+        foreach ($fields as $k => $v) {
+            update_post_meta($new_id, $k, $v);
+            update_post_meta($new_id, str_replace('kvt_','',$k), $v);
+        }
+        $statuses = $this->get_statuses();
+        if (!empty($statuses)) update_post_meta($new_id,'kvt_status',$statuses[0]);
+        if ($client_id) wp_set_object_terms($new_id, [$client_id], self::TAX_CLIENT, false);
+        if ($process_id) wp_set_object_terms($new_id, [$process_id], self::TAX_PROCESS, false);
+
+        wp_send_json_success(['id'=>$new_id]);
     }
 
     /* Export */
