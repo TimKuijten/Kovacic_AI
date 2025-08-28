@@ -504,21 +504,29 @@ cv_uploaded|Fecha de subida");
         <div class="kvt-wrapper">
             <div class="kvt-toolbar">
                 <div class="kvt-filters">
+                    <label>Cliente
+                        <select id="kvt_client">
+                            <option value="">— Todos —</option>
+                            <?php foreach ($clients as $c): ?>
+                              <option value="<?php echo esc_attr($c->term_id); ?>"><?php echo esc_html($c->name); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
+                    <label>Proceso
+                        <select id="kvt_process">
+                            <option value="">— Todos —</option>
+                            <?php foreach ($processes as $t): ?>
+                              <option value="<?php echo esc_attr($t->term_id); ?>"><?php echo esc_html($t->name); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
                     <label>Búsqueda
-                        <input type="text" id="kvt_search" placeholder="Nombre, email, ciudad…">
+                        <input type="text" id="kvt_search" placeholder="Nombre, email, ciudad o tag…">
                     </label>
                     <button class="kvt-btn" id="kvt_refresh">Actualizar</button>
                 </div>
                 <div class="kvt-actions">
-                    <button class="kvt-btn" id="kvt_add_profile">Añadir perfil</button>
-                    <div class="kvt-new" id="kvt_new_container">
-                      <button type="button" class="kvt-btn" id="kvt_new_btn">Nuevo</button>
-                      <div class="kvt-new-menu" id="kvt_new_menu">
-                        <button type="button" data-action="candidate">Nuevo candidato</button>
-                        <button type="button" data-action="client">Nuevo cliente</button>
-                        <button type="button" data-action="process">Nuevo proceso</button>
-                      </div>
-                    </div>
+                    <button class="kvt-btn" id="kvt_add_profile">Base</button>
                     <button class="kvt-btn kvt-secondary" id="kvt_toggle_table">Tabla</button>
                     <form id="kvt_export_form" method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" target="_blank" style="display:inline;">
                         <input type="hidden" name="action" value="kvt_export">
@@ -552,11 +560,11 @@ cv_uploaded|Fecha de subida");
             </div>
         </div>
 
-        <!-- Modal Añadir Perfil -->
+        <!-- Modal Base -->
         <div class="kvt-modal" id="kvt_modal" style="display:none;">
           <div class="kvt-modal-content" role="dialog" aria-modal="true" aria-labelledby="kvt_modal_title">
             <div class="kvt-modal-header">
-              <h3 id="kvt_modal_title">Añadir perfil</h3>
+              <h3 id="kvt_modal_title">Base</h3>
               <button type="button" class="kvt-modal-close dashicons dashicons-no-alt" title="Cerrar"></button>
             </div>
             <div class="kvt-modal-body">
@@ -578,9 +586,16 @@ cv_uploaded|Fecha de subida");
                   </select>
                 </label>
                 <label>Buscar
-                  <input type="text" id="kvt_modal_search" placeholder="Nombre o email…">
+                  <input type="text" id="kvt_modal_search" placeholder="Nombre, email, país o tag…">
                 </label>
-                <button type="button" class="kvt-btn" id="kvt_modal_create_empty">Crear vacío</button>
+                <div class="kvt-new" id="kvt_new_container">
+                  <button type="button" class="kvt-btn" id="kvt_new_btn">Nuevo</button>
+                  <div class="kvt-new-menu" id="kvt_new_menu">
+                    <button type="button" data-action="candidate">Nuevo candidato</button>
+                    <button type="button" data-action="client">Nuevo cliente</button>
+                    <button type="button" data-action="process">Nuevo proceso</button>
+                  </div>
+                </div>
                 <form id="kvt_export_all_form" method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" target="_blank">
                   <input type="hidden" name="action" value="kvt_export">
                   <input type="hidden" name="kvt_export_nonce" value="<?php echo esc_attr(wp_create_nonce('kvt_export')); ?>">
@@ -703,8 +718,8 @@ cv_uploaded|Fecha de subida");
         .kvt-card.dragging{opacity:.6}
         .kvt-card .kvt-title{font-weight:700;margin:0 0 4px}
         .kvt-card .kvt-sub{font-size:12px;color:#64748b;margin:0}
-        .kvt-card .kvt-tags{margin:4px 0;display:flex;gap:4px;flex-wrap:wrap}
-        .kvt-card .kvt-tag{background:#eef2f7;color:#0A212E;border:1px solid #e5e7eb;border-radius:6px;padding:2px 6px;font-size:12px}
+        .kvt-card .kvt-tags, .kvt-card-mini .kvt-tags{margin:4px 0;display:flex;gap:4px;flex-wrap:wrap}
+        .kvt-card .kvt-tag, .kvt-card-mini .kvt-tag{background:#eef2f7;color:#0A212E;border:1px solid #e5e7eb;border-radius:6px;padding:2px 6px;font-size:12px}
         .kvt-card .kvt-meta{display:none}
         .kvt-card .kvt-expand{margin-top:8px;display:flex;gap:8px;flex-wrap:wrap}
         .kvt-card .kvt-expand button{background:#eef2f7;color:#0A212E;border:1px solid #e5e7eb;border-radius:8px;padding:6px 10px;cursor:pointer;font-weight:600}
@@ -804,7 +819,6 @@ document.addEventListener('DOMContentLoaded', function(){
   const modalPrev  = el('#kvt_modal_prev', modal);
   const modalNext  = el('#kvt_modal_next', modal);
   const modalPage  = el('#kvt_modal_pageinfo', modal);
-  const modalCreate= el('#kvt_modal_create_empty', modal);
   const modalSearch= el('#kvt_modal_search', modal);
 
   let currentPage = 1;
@@ -1214,6 +1228,7 @@ document.addEventListener('DOMContentLoaded', function(){
             return '<div class="kvt-card-mini" data-id="'+it.id+'">'+
               '<h4>'+esc((m.first_name||'')+' '+(m.last_name||''))+(m.cv_url?'<a href="'+escAttr(m.cv_url)+'" class="kvt-cv-link dashicons dashicons-media-document" target="_blank" title="Ver CV"></a>':'')+'</h4>'+
               '<p style="margin:.2em 0;color:#64748b">'+esc(m.email||'')+'</p>'+
+              (m.tags?'<div class="kvt-tags">'+m.tags.split(',').map(t=>'<span class="kvt-tag">'+esc(t.trim())+'</span>').join('')+'</div>':'')+
               '<div class="kvt-mini-actions">'+
                 '<button type="button" class="kvt-btn kvt-mini-add" data-id="'+it.id+'">Añadir</button>'+
                 '<button type="button" class="kvt-btn kvt-secondary kvt-mini-view" data-id="'+it.id+'">Ver perfil</button>'+
@@ -1265,20 +1280,6 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   modalPrev && modalPrev.addEventListener('click', ()=>{ if(currentPage>1) listProfiles(currentPage-1); });
   modalNext && modalNext.addEventListener('click', ()=>{ listProfiles(currentPage+1); });
-  modalCreate && modalCreate.addEventListener('click', ()=>{
-    const p = new URLSearchParams();
-    p.set('action','kvt_clone_profile');
-    p.set('_ajax_nonce', KVT_NONCE);
-    p.set('source_id','0');
-    p.set('process_id', modalProc.value||'');
-    p.set('client_id',  modalCli.value||'');
-    fetch(KVT_AJAX,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:p.toString()})
-      .then(r=>r.json()).then(j=>{
-        if(!j.success) return alert(j.data && j.data.msg ? j.data.msg : 'No se pudo crear.');
-        alert('Perfil vacío creado (#'+j.data.id+').');
-        closeModal(); refresh();
-      });
-  });
   let mto=null;
   modalSearch && modalSearch.addEventListener('input', ()=>{ clearTimeout(mto); mto=setTimeout(()=>listProfiles(1), 300); });
   btnAdd && btnAdd.addEventListener('click', openModal);
@@ -1654,9 +1655,15 @@ JS;
                 ['key'=>'kvt_first_name','value'=>$search,'compare'=>'LIKE'],
                 ['key'=>'kvt_last_name', 'value'=>$search,'compare'=>'LIKE'],
                 ['key'=>'kvt_email',     'value'=>$search,'compare'=>'LIKE'],
+                ['key'=>'kvt_country',   'value'=>$search,'compare'=>'LIKE'],
+                ['key'=>'kvt_city',      'value'=>$search,'compare'=>'LIKE'],
+                ['key'=>'kvt_tags',      'value'=>$search,'compare'=>'LIKE'],
                 ['key'=>'first_name','value'=>$search,'compare'=>'LIKE'],
                 ['key'=>'last_name', 'value'=>$search,'compare'=>'LIKE'],
                 ['key'=>'email',     'value'=>$search,'compare'=>'LIKE'],
+                ['key'=>'country',   'value'=>$search,'compare'=>'LIKE'],
+                ['key'=>'city',      'value'=>$search,'compare'=>'LIKE'],
+                ['key'=>'tags',      'value'=>$search,'compare'=>'LIKE'],
             ];
             $args['s'] = $search;
         }
@@ -1675,6 +1682,7 @@ JS;
                     'phone'       => $this->meta_get_compat($p->ID,'kvt_phone',['phone']),
                     'country'     => $this->meta_get_compat($p->ID,'kvt_country',['country']),
                     'city'        => $this->meta_get_compat($p->ID,'kvt_city',['city']),
+                    'tags'        => $this->meta_get_compat($p->ID,'kvt_tags',['tags']),
                     'cv_url'      => $this->meta_get_compat($p->ID,'kvt_cv_url',['cv_url']),
                     'cv_uploaded' => $this->fmt_date_ddmmyyyy($this->meta_get_compat($p->ID,'kvt_cv_uploaded',['cv_uploaded'])),
                     'notes'       => $notes_raw,
