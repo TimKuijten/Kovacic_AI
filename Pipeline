@@ -27,6 +27,12 @@ class Kovacic_Pipeline_Visualizer {
         add_action('created_' . self::TAX_PROCESS,          [$this, 'save_process_term'], 10, 2);
         add_action('edited_'  . self::TAX_PROCESS,          [$this, 'save_process_term'], 10, 2);
 
+        // Term meta: Cliente (contacto)
+        add_action(self::TAX_CLIENT . '_add_form_fields',  [$this, 'client_add_fields']);
+        add_action(self::TAX_CLIENT . '_edit_form_fields', [$this, 'client_edit_fields']);
+        add_action('created_' . self::TAX_CLIENT,          [$this, 'save_client_term'], 10, 2);
+        add_action('edited_'  . self::TAX_CLIENT,          [$this, 'save_client_term'], 10, 2);
+
         // Candidate admin UI
         add_action('add_meta_boxes',             [$this, 'add_meta_boxes']);
         add_action('save_post_' . self::CPT,     [$this, 'save_candidate_meta']);
@@ -203,6 +209,41 @@ cv_uploaded|Fecha de subida");
             } else {
                 delete_term_meta($term_id, 'kvt_process_client');
             }
+        }
+    }
+
+    /* Cliente contact meta */
+    public function client_add_fields($taxonomy) { ?>
+        <div class="form-field">
+            <label for="kvt_client_contact_name">Persona de contacto</label>
+            <input type="text" name="kvt_client_contact_name" id="kvt_client_contact_name">
+        </div>
+        <div class="form-field">
+            <label for="kvt_client_contact_email">Email de contacto</label>
+            <input type="email" name="kvt_client_contact_email" id="kvt_client_contact_email">
+        </div>
+        <?php
+    }
+    public function client_edit_fields($term) {
+        $cname  = get_term_meta($term->term_id, 'contact_name', true);
+        $cemail = get_term_meta($term->term_id, 'contact_email', true);
+        ?>
+        <tr class="form-field">
+            <th scope="row"><label for="kvt_client_contact_name">Persona de contacto</label></th>
+            <td><input type="text" name="kvt_client_contact_name" id="kvt_client_contact_name" value="<?php echo esc_attr($cname); ?>"></td>
+        </tr>
+        <tr class="form-field">
+            <th scope="row"><label for="kvt_client_contact_email">Email de contacto</label></th>
+            <td><input type="email" name="kvt_client_contact_email" id="kvt_client_contact_email" value="<?php echo esc_attr($cemail); ?>"></td>
+        </tr>
+        <?php
+    }
+    public function save_client_term($term_id, $tt_id) {
+        if (isset($_POST['kvt_client_contact_name'])) {
+            update_term_meta($term_id, 'contact_name', sanitize_text_field($_POST['kvt_client_contact_name']));
+        }
+        if (isset($_POST['kvt_client_contact_email'])) {
+            update_term_meta($term_id, 'contact_email', sanitize_email($_POST['kvt_client_contact_email']));
         }
     }
 
@@ -464,7 +505,12 @@ cv_uploaded|Fecha de subida");
         $out = [];
         foreach ($terms as $t) {
             $cid = (int) get_term_meta($t->term_id, 'kvt_process_client', true);
-            $out[] = ['id'=>$t->term_id, 'name'=>$t->name, 'client_id'=>$cid ?: 0];
+            $out[] = [
+                'id'          => $t->term_id,
+                'name'        => $t->name,
+                'client_id'   => $cid ?: 0,
+                'description' => $t->description,
+            ];
         }
         return $out;
     }
@@ -520,9 +566,6 @@ cv_uploaded|Fecha de subida");
                             <?php endforeach; ?>
                         </select>
                     </label>
-                    <label>Búsqueda
-                        <input type="text" id="kvt_search" placeholder="Nombre, email, ciudad o tag…">
-                    </label>
                     <button class="kvt-btn" id="kvt_refresh">Actualizar</button>
                 </div>
                 <div class="kvt-actions">
@@ -533,7 +576,6 @@ cv_uploaded|Fecha de subida");
                         <input type="hidden" name="kvt_export_nonce" value="<?php echo esc_attr(wp_create_nonce('kvt_export')); ?>">
                         <input type="hidden" name="filter_client"  id="kvt_export_client"  value="">
                         <input type="hidden" name="filter_process" id="kvt_export_process" value="">
-                        <input type="hidden" name="filter_search"  id="kvt_export_search"  value="">
                         <input type="hidden" name="format"         id="kvt_export_format"   value="csv">
                         <button class="kvt-btn" type="button" id="kvt_export_csv">Export CSV</button>
                         <button class="kvt-btn" type="button" id="kvt_export_xls">Export Excel</button>
@@ -543,7 +585,7 @@ cv_uploaded|Fecha de subida");
 
             <div id="kvt_selected_info" data-client-base="<?php echo esc_url(admin_url('term.php?taxonomy=' . self::TAX_CLIENT . '&tag_ID=')); ?>" data-process-base="<?php echo esc_url(admin_url('term.php?taxonomy=' . self::TAX_PROCESS . '&tag_ID=')); ?>" style="display:none;">
               <span id="kvt_selected_summary"></span>
-              <button type="button" class="kvt-btn kvt-secondary" id="kvt_selected_toggle">Detalles</button>
+              <button type="button" class="kvt-btn kvt-secondary" id="kvt_selected_toggle">Más información</button>
               <div id="kvt_selected_details" style="display:none;">
                 <p id="kvt_selected_client"></p>
                 <p id="kvt_selected_process"></p>
@@ -601,7 +643,6 @@ cv_uploaded|Fecha de subida");
                   <input type="hidden" name="kvt_export_nonce" value="<?php echo esc_attr(wp_create_nonce('kvt_export')); ?>">
                   <input type="hidden" name="filter_client" value="">
                   <input type="hidden" name="filter_process" value="">
-                  <input type="hidden" name="filter_search" value="">
                   <input type="hidden" name="format" id="kvt_export_all_format" value="csv">
                   <button type="button" class="kvt-btn" id="kvt_export_all_csv">Export CSV</button>
                   <button type="button" class="kvt-btn" id="kvt_export_all_xls">Export Excel</button>
@@ -792,7 +833,6 @@ document.addEventListener('DOMContentLoaded', function(){
 
   const selClient  = el('#kvt_client');
   const selProcess = el('#kvt_process');
-  const inpSearch  = el('#kvt_search');
   const btnRefresh = el('#kvt_refresh');
   const btnToggle  = el('#kvt_toggle_table');
     const btnCSV     = el('#kvt_export_csv');
@@ -1105,7 +1145,6 @@ document.addEventListener('DOMContentLoaded', function(){
     params.set('_ajax_nonce', KVT_NONCE);
     params.set('client', selClient ? selClient.value : '');
     params.set('process', selProcess ? selProcess.value : '');
-    params.set('search', inpSearch.value);
     return fetch(KVT_AJAX, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:params.toString() }).then(r=>r.json());
   }
 
@@ -1152,7 +1191,6 @@ document.addEventListener('DOMContentLoaded', function(){
   function syncExportHidden(){
     el('#kvt_export_client').value  = selClient ? selClient.value : '';
     el('#kvt_export_process').value = selProcess ? selProcess.value : '';
-    el('#kvt_export_search').value  = inpSearch.value;
   }
 
   function updateSelectedInfo(){
@@ -1163,6 +1201,8 @@ document.addEventListener('DOMContentLoaded', function(){
     const cname = cid && selClient.options[selClient.selectedIndex] ? selClient.options[selClient.selectedIndex].text : '';
     const pname = pid && selProcess.options[selProcess.selectedIndex] ? selProcess.options[selProcess.selectedIndex].text : '';
     selInfo.style.display='block';
+    selToggle.style.display = (cid && pid) ? 'inline-block' : 'none';
+    if(!(cid && pid)) selDetails.style.display = 'none';
     selSummary.textContent = (cname?('Cliente: '+cname):'') + (pname?((cname?' – ':'')+'Proceso: '+pname):'');
     let clientDet='';
     if(cid && Array.isArray(window.KVT_CLIENT_MAP)){
@@ -1178,7 +1218,7 @@ document.addEventListener('DOMContentLoaded', function(){
     let procDet='';
     if(pid && Array.isArray(window.KVT_PROCESS_MAP)){
       const p = window.KVT_PROCESS_MAP.find(x=>String(x.id)===pid);
-      if(p){ procDet = p.name||''; }
+      if(p){ procDet = 'Descripción: '+(p.description||''); }
       procDet += ' <a href="'+selInfo.dataset.processBase+pid+'" target="_blank">Editar</a>';
     }
     selProcessInfo.innerHTML = procDet;
@@ -1206,7 +1246,6 @@ document.addEventListener('DOMContentLoaded', function(){
   btnRefresh && btnRefresh.addEventListener('click', ()=>{ refresh(); updateSelectedInfo(); });
   selClient && selClient.addEventListener('change', ()=>{ filterProcessOptions(); refresh(); updateSelectedInfo(); });
   selProcess && selProcess.addEventListener('change', ()=>{ refresh(); updateSelectedInfo(); });
-  let to=null; inpSearch && inpSearch.addEventListener('input', ()=>{ clearTimeout(to); to=setTimeout(refresh,300); });
 
   updateSelectedInfo();
 
@@ -1435,7 +1474,6 @@ document.addEventListener('DOMContentLoaded', function(){
   // Init
   renderBoardSkeleton();
   filterProcessOptions();
-  refresh();
 });
 JS;
             wp_add_inline_script('kvt-app', $js, 'after');
@@ -1449,6 +1487,10 @@ JS;
         $client_id  = isset($_POST['client'])  ? intval($_POST['client'])  : 0;
         $process_id = isset($_POST['process']) ? intval($_POST['process']) : 0;
         $search     = isset($_POST['search'])  ? trim(sanitize_text_field($_POST['search'])) : '';
+
+        if (!$client_id && !$process_id) {
+            wp_send_json_success([]);
+        }
 
         $tax_query = [];
         if ($process_id) {
@@ -1488,11 +1530,9 @@ JS;
                 ['key'=>'kvt_first_name','value'=>$search,'compare'=>'LIKE'],
                 ['key'=>'kvt_last_name', 'value'=>$search,'compare'=>'LIKE'],
                 ['key'=>'kvt_email',     'value'=>$search,'compare'=>'LIKE'],
-                ['key'=>'kvt_tags',      'value'=>$search,'compare'=>'LIKE'],
                 ['key'=>'first_name','value'=>$search,'compare'=>'LIKE'],
                 ['key'=>'last_name', 'value'=>$search,'compare'=>'LIKE'],
                 ['key'=>'email',     'value'=>$search,'compare'=>'LIKE'],
-                ['key'=>'tags',      'value'=>$search,'compare'=>'LIKE'],
             ];
             $args['s'] = $search;
         }
@@ -1657,13 +1697,11 @@ JS;
                 ['key'=>'kvt_email',     'value'=>$search,'compare'=>'LIKE'],
                 ['key'=>'kvt_country',   'value'=>$search,'compare'=>'LIKE'],
                 ['key'=>'kvt_city',      'value'=>$search,'compare'=>'LIKE'],
-                ['key'=>'kvt_tags',      'value'=>$search,'compare'=>'LIKE'],
                 ['key'=>'first_name','value'=>$search,'compare'=>'LIKE'],
                 ['key'=>'last_name', 'value'=>$search,'compare'=>'LIKE'],
                 ['key'=>'email',     'value'=>$search,'compare'=>'LIKE'],
                 ['key'=>'country',   'value'=>$search,'compare'=>'LIKE'],
                 ['key'=>'city',      'value'=>$search,'compare'=>'LIKE'],
-                ['key'=>'tags',      'value'=>$search,'compare'=>'LIKE'],
             ];
             $args['s'] = $search;
         }
