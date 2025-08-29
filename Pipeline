@@ -599,8 +599,7 @@ cv_uploaded|Fecha de subida");
             </div>
 
             <div id="kvt_selected_info" data-client-base="<?php echo esc_url(admin_url('term.php?taxonomy=' . self::TAX_CLIENT . '&tag_ID=')); ?>" data-process-base="<?php echo esc_url(admin_url('term.php?taxonomy=' . self::TAX_PROCESS . '&tag_ID=')); ?>" style="display:none;">
-              <span id="kvt_selected_summary"></span>
-              <button type="button" class="kvt-btn kvt-secondary" id="kvt_selected_toggle">Más información</button>
+              <button type="button" class="kvt-btn kvt-secondary" id="kvt_selected_toggle">Información de cliente y proceso</button>
               <div id="kvt_selected_details" style="display:none;">
                 <p id="kvt_selected_client"></p>
                 <p id="kvt_selected_process"></p>
@@ -626,24 +625,9 @@ cv_uploaded|Fecha de subida");
             </div>
             <div class="kvt-modal-body">
               <div class="kvt-modal-controls">
-                <label>Cliente
-                  <select id="kvt_modal_client">
-                    <option value="">— Ninguno —</option>
-                    <?php foreach ($clients as $c): ?>
-                      <option value="<?php echo esc_attr($c->term_id); ?>"><?php echo esc_html($c->name); ?></option>
-                    <?php endforeach; ?>
-                  </select>
-                </label>
-                <label>Proceso
-                  <select id="kvt_modal_process">
-                    <option value="">— Ninguno —</option>
-                    <?php foreach ($processes as $t): ?>
-                      <option value="<?php echo esc_attr($t->term_id); ?>"><?php echo esc_html($t->name); ?></option>
-                    <?php endforeach; ?>
-                  </select>
-                </label>
                 <label>País
                   <select id="kvt_modal_country" multiple size="4">
+                    <option value="">— Todos —</option>
                     <?php foreach ($countries as $co): ?>
                       <option value="<?php echo esc_attr($co); ?>"><?php echo esc_html($co); ?></option>
                     <?php endforeach; ?>
@@ -651,6 +635,7 @@ cv_uploaded|Fecha de subida");
                 </label>
                 <label>Ciudad
                   <select id="kvt_modal_city" multiple size="4">
+                    <option value="">— Todos —</option>
                     <?php foreach ($cities as $ci): ?>
                       <option value="<?php echo esc_attr($ci); ?>"><?php echo esc_html($ci); ?></option>
                     <?php endforeach; ?>
@@ -877,7 +862,6 @@ document.addEventListener('DOMContentLoaded', function(){
     const exportAllForm   = el('#kvt_export_all_form');
     const exportAllFormat = el('#kvt_export_all_format');
     const selInfo    = el('#kvt_selected_info');
-    const selSummary = el('#kvt_selected_summary');
     const selToggle  = el('#kvt_selected_toggle');
     const selDetails = el('#kvt_selected_details');
     const selClientInfo = el('#kvt_selected_client');
@@ -886,8 +870,6 @@ document.addEventListener('DOMContentLoaded', function(){
   const modal      = el('#kvt_modal');
   const modalClose = el('.kvt-modal-close', modal);
   const modalList  = el('#kvt_modal_list', modal);
-  const modalCli   = el('#kvt_modal_client', modal);
-  const modalProc  = el('#kvt_modal_process', modal);
   const modalCountry= el('#kvt_modal_country', modal);
   const modalCity   = el('#kvt_modal_city', modal);
   const modalPrev  = el('#kvt_modal_prev', modal);
@@ -899,12 +881,17 @@ document.addEventListener('DOMContentLoaded', function(){
 
   function openModal(){
     modal.style.display = 'flex';
-    if (selClient && selClient.value) modalCli.value = selClient.value;
-    filterModalProcessOptions();
-    if (selProcess && selProcess.value) modalProc.value = selProcess.value;
     modalSearch.value = '';
-    if(modalCountry) Array.from(modalCountry.options).forEach(o=>o.selected=false);
-    if(modalCity) Array.from(modalCity.options).forEach(o=>o.selected=false);
+    if(modalCountry){
+      Array.from(modalCountry.options).forEach(o=>o.selected=false);
+      const allOpt = modalCountry.querySelector('option[value=""]');
+      if(allOpt) allOpt.selected = true;
+    }
+    if(modalCity){
+      Array.from(modalCity.options).forEach(o=>o.selected=false);
+      const allOpt = modalCity.querySelector('option[value=""]');
+      if(allOpt) allOpt.selected = true;
+    }
     listProfiles(1);
   }
   function closeModal(){ modal.style.display = 'none'; }
@@ -926,21 +913,6 @@ document.addEventListener('DOMContentLoaded', function(){
     });
     if (current && Array.from(selProcess.options).some(o=>o.value===current)) selProcess.value = current;
   }
-  function filterModalProcessOptions(){
-    const clientId = parseInt(modalCli.value || '0', 10);
-    const current = modalProc.value;
-    modalProc.innerHTML = '<option value="">— Ninguno —</option>';
-    (window.KVT_PROCESS_MAP||[]).forEach(p=>{
-      if (!clientId || p.client_id === clientId) {
-        const opt = document.createElement('option');
-        opt.value = String(p.id);
-        opt.textContent = p.name;
-        modalProc.appendChild(opt);
-      }
-    });
-    if (current && Array.from(modalProc.options).some(o=>o.value===current)) modalProc.value = current;
-  }
-  modalCli && modalCli.addEventListener('change', filterModalProcessOptions);
 
   function renderBoardSkeleton(){
     board.innerHTML = '';
@@ -1233,34 +1205,35 @@ document.addEventListener('DOMContentLoaded', function(){
     if(!selInfo) return;
     const cid = selClient && selClient.value ? selClient.value : '';
     const pid = selProcess && selProcess.value ? selProcess.value : '';
-    if(!cid && !pid){ selInfo.style.display='none'; return; }
-    const cname = cid && selClient.options[selClient.selectedIndex] ? selClient.options[selClient.selectedIndex].text : '';
-    const pname = pid && selProcess.options[selProcess.selectedIndex] ? selProcess.options[selProcess.selectedIndex].text : '';
+    if(!cid || !pid){ selInfo.style.display='none'; return; }
     selInfo.style.display='block';
-    selToggle.style.display = (cid && pid) ? 'inline-block' : 'none';
-    if(!(cid && pid)) selDetails.style.display = 'none';
-    selSummary.textContent = (cname?('Cliente: '+cname):'') + (pname?((cname?' – ':'')+'Proceso: '+pname):'');
+    selToggle.style.display = 'inline-block';
+    selDetails.style.display = 'none';
     let clientDet='';
-    if(cid && Array.isArray(window.KVT_CLIENT_MAP)){
+    if(Array.isArray(window.KVT_CLIENT_MAP)){
       const c = window.KVT_CLIENT_MAP.find(x=>String(x.id)===cid);
       if(c){
-        clientDet = 'Contacto: '+(c.contact_name||'');
-        if(c.contact_email) clientDet += ', '+c.contact_email;
-        if(c.contact_phone) clientDet += ', '+c.contact_phone;
-        if(c.description) clientDet += '<br>Descripción: '+c.description;
+        clientDet = '<strong>Cliente:</strong> '+esc(c.name||'');
+        if(c.contact_name || c.contact_email || c.contact_phone){
+          clientDet += '<br><em>Contacto:</em> '+esc(c.contact_name||'');
+          if(c.contact_email) clientDet += ', '+esc(c.contact_email);
+          if(c.contact_phone) clientDet += ', '+esc(c.contact_phone);
+        }
+        if(c.description) clientDet += '<br><em>Descripción:</em> '+esc(c.description);
       }
       clientDet += ' <a href="'+selInfo.dataset.clientBase+cid+'" target="_blank">Editar</a>';
     }
     selClientInfo.innerHTML = clientDet;
     let procDet='';
-    if(pid && Array.isArray(window.KVT_PROCESS_MAP)){
+    if(Array.isArray(window.KVT_PROCESS_MAP)){
       const p = window.KVT_PROCESS_MAP.find(x=>String(x.id)===pid);
       if(p){
+        procDet = '<strong>Proceso:</strong> '+esc(p.name||'');
         if(p.contact_name || p.contact_email){
-          procDet = 'Contacto: '+(p.contact_name||'');
-          if(p.contact_email) procDet += ', '+p.contact_email;
+          procDet += '<br><em>Contacto:</em> '+esc(p.contact_name||'');
+          if(p.contact_email) procDet += ', '+esc(p.contact_email);
         }
-        if(p.description){ procDet += (procDet?'<br>':'')+'Descripción: '+p.description; }
+        if(p.description) procDet += '<br><em>Descripción:</em> '+esc(p.description);
       }
       procDet += ' <a href="'+selInfo.dataset.processBase+pid+'" target="_blank">Editar</a>';
     }
@@ -1300,8 +1273,8 @@ document.addEventListener('DOMContentLoaded', function(){
     params.set('_ajax_nonce', KVT_NONCE);
     params.set('page', currentPage);
     params.set('q', modalSearch.value || '');
-    const cvals = modalCountry ? Array.from(modalCountry.selectedOptions).map(o=>o.value).join(',') : '';
-    const cityVals = modalCity ? Array.from(modalCity.selectedOptions).map(o=>o.value).join(',') : '';
+    const cvals = modalCountry ? Array.from(modalCountry.selectedOptions).map(o=>o.value).filter(v=>v).join(',') : '';
+    const cityVals = modalCity ? Array.from(modalCity.selectedOptions).map(o=>o.value).filter(v=>v).join(',') : '';
     params.set('countries', cvals);
     params.set('cities', cityVals);
     fetch(KVT_AJAX,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:params.toString()})
@@ -1309,14 +1282,15 @@ document.addEventListener('DOMContentLoaded', function(){
       .then(j=>{
         if(!j.success) return alert('No se pudo cargar la lista.');
         const {items,pages} = j.data;
-          modalList.innerHTML = items.map(it=>{
+        const allowAdd = selClient && selClient.value && selProcess && selProcess.value;
+        modalList.innerHTML = items.map(it=>{
             const m = it.meta||{};
             return '<div class="kvt-card-mini" data-id="'+it.id+'">'+
               '<h4>'+esc((m.first_name||'')+' '+(m.last_name||''))+(m.cv_url?'<a href="'+escAttr(m.cv_url)+'" class="kvt-cv-link dashicons dashicons-media-document" target="_blank" title="Ver CV"></a>':'')+'</h4>'+
               '<p style="margin:.2em 0;color:#64748b">'+esc(m.email||'')+'</p>'+
               (m.tags?'<div class="kvt-tags">'+m.tags.split(',').map(t=>'<span class="kvt-tag">'+esc(t.trim())+'</span>').join('')+'</div>':'')+
               '<div class="kvt-mini-actions">'+
-                '<button type="button" class="kvt-btn kvt-mini-add" data-id="'+it.id+'">Añadir</button>'+
+                (allowAdd?'<button type="button" class="kvt-btn kvt-mini-add" data-id="'+it.id+'">Añadir</button>':'')+
                 '<button type="button" class="kvt-btn kvt-secondary kvt-mini-view" data-id="'+it.id+'">Ver perfil</button>'+
               '</div>'+
               '<div class="kvt-mini-panel">'+buildProfileHTML({meta:it.meta})+'</div>'+
@@ -1325,26 +1299,29 @@ document.addEventListener('DOMContentLoaded', function(){
           modalPage.textContent = 'Página '+currentPage+' de '+(pages||1);
           if(modalPrev) modalPrev.style.display = pages>1 ? 'inline-block' : 'none';
           if(modalNext) modalNext.style.display = pages>1 ? 'inline-block' : 'none';
-          els('.kvt-mini-add', modalList).forEach(b=>{
-            b.addEventListener('click', ()=>{
-              const id = b.getAttribute('data-id');
-              const proc = modalProc.value;
-              const cli  = modalCli.value;
-              const p = new URLSearchParams();
-              p.set('action','kvt_assign_candidate');
-              p.set('_ajax_nonce', KVT_NONCE);
-              p.set('candidate_id', id);
-              p.set('process_id', proc);
-              p.set('client_id', cli);
-              fetch(KVT_AJAX,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:p.toString()})
-                .then(r=>r.json()).then(j=>{
-                  if(!j.success) return alert(j.data && j.data.msg ? j.data.msg : 'No se pudo asignar.');
-                  alert('Candidato asignado.');
-                  closeModal();
-                  refresh();
-                });
+          if(allowAdd){
+            els('.kvt-mini-add', modalList).forEach(b=>{
+              b.addEventListener('click', ()=>{
+                const id = b.getAttribute('data-id');
+                const proc = selProcess.value;
+                const cli  = selClient.value;
+                if(!proc || !cli){ alert('Seleccione cliente y proceso en el tablero.'); return; }
+                const p = new URLSearchParams();
+                p.set('action','kvt_assign_candidate');
+                p.set('_ajax_nonce', KVT_NONCE);
+                p.set('candidate_id', id);
+                p.set('process_id', proc);
+                p.set('client_id', cli);
+                fetch(KVT_AJAX,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:p.toString()})
+                  .then(r=>r.json()).then(j=>{
+                    if(!j.success) return alert(j.data && j.data.msg ? j.data.msg : 'No se pudo asignar.');
+                    alert('Candidato asignado.');
+                    closeModal();
+                    refresh();
+                  });
+              });
             });
-          });
+          }
           els('.kvt-mini-view', modalList).forEach(b=>{
             b.addEventListener('click', ()=>{
               const card = b.closest('.kvt-card-mini');
@@ -1366,8 +1343,18 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   modalPrev && modalPrev.addEventListener('click', ()=>{ if(currentPage>1) listProfiles(currentPage-1); });
   modalNext && modalNext.addEventListener('click', ()=>{ listProfiles(currentPage+1); });
-  modalCountry && modalCountry.addEventListener('change', ()=>{ listProfiles(1); });
-  modalCity && modalCity.addEventListener('change', ()=>{ listProfiles(1); });
+  modalCountry && modalCountry.addEventListener('change', ()=>{
+    if(Array.from(modalCountry.selectedOptions).some(o=>o.value==='')){
+      Array.from(modalCountry.options).forEach(o=>{ o.selected = (o.value===''); });
+    }
+    listProfiles(1);
+  });
+  modalCity && modalCity.addEventListener('change', ()=>{
+    if(Array.from(modalCity.selectedOptions).some(o=>o.value==='')){
+      Array.from(modalCity.options).forEach(o=>{ o.selected = (o.value===''); });
+    }
+    listProfiles(1);
+  });
   let mto=null;
   modalSearch && modalSearch.addEventListener('input', ()=>{ clearTimeout(mto); mto=setTimeout(()=>listProfiles(1), 300); });
   btnAdd && btnAdd.addEventListener('click', openModal);
@@ -1596,7 +1583,6 @@ JS;
                 ['key'=>'last_name', 'value'=>$search,'compare'=>'LIKE'],
                 ['key'=>'email',     'value'=>$search,'compare'=>'LIKE'],
             ];
-            $args['s'] = $search;
         }
 
         $q = new WP_Query($args);
@@ -1788,7 +1774,6 @@ JS;
                 ['key'=>'city',      'value'=>$search,'compare'=>'LIKE'],
                 ['key'=>'tags',      'value'=>$search,'compare'=>'LIKE'],
             ];
-            $args['s'] = $search;
         }
 
         if (count($meta_query) > 1) {
