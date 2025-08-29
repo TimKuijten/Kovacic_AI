@@ -73,6 +73,10 @@ class Kovacic_Pipeline_Visualizer {
         add_action('wp_ajax_nopriv_kvt_create_client', [$this, 'ajax_create_client']);
         add_action('wp_ajax_kvt_create_process',       [$this, 'ajax_create_process']);
         add_action('wp_ajax_nopriv_kvt_create_process',[$this, 'ajax_create_process']);
+        add_action('wp_ajax_kvt_update_client',        [$this, 'ajax_update_client']);
+        add_action('wp_ajax_nopriv_kvt_update_client', [$this, 'ajax_update_client']);
+        add_action('wp_ajax_kvt_update_process',       [$this, 'ajax_update_process']);
+        add_action('wp_ajax_nopriv_kvt_update_process',[$this, 'ajax_update_process']);
         add_action('wp_ajax_kvt_assign_candidate',     [$this, 'ajax_assign_candidate']);
         add_action('wp_ajax_nopriv_kvt_assign_candidate',[$this, 'ajax_assign_candidate']);
         add_action('wp_ajax_kvt_unassign_candidate',   [$this, 'ajax_unassign_candidate']);
@@ -602,7 +606,7 @@ cv_uploaded|Fecha de subida");
                 </div>
             </div>
 
-            <div id="kvt_selected_info" data-client-base="<?php echo esc_url(admin_url('term.php?taxonomy=' . self::TAX_CLIENT . '&tag_ID=')); ?>" data-process-base="<?php echo esc_url(admin_url('term.php?taxonomy=' . self::TAX_PROCESS . '&tag_ID=')); ?>" style="display:none;">
+            <div id="kvt_selected_info" style="display:none;">
               <button type="button" class="kvt-btn kvt-secondary" id="kvt_selected_toggle">Información de cliente y proceso</button>
               <div id="kvt_selected_details" style="display:none;">
                 <p id="kvt_selected_client"></p>
@@ -905,6 +909,17 @@ document.addEventListener('DOMContentLoaded', function(){
   const tabProcesses = el('#kvt_tab_processes', modal);
   const clientsList = el('#kvt_clients_list', modal);
   const processesList = el('#kvt_processes_list', modal);
+
+  function getClientById(id){
+    if(!Array.isArray(window.KVT_CLIENT_MAP)) return null;
+    id = parseInt(id,10);
+    return window.KVT_CLIENT_MAP.find(c=>c.id===id) || null;
+  }
+  function getProcessById(id){
+    if(!Array.isArray(window.KVT_PROCESS_MAP)) return null;
+    id = parseInt(id,10);
+    return window.KVT_PROCESS_MAP.find(p=>p.id===id) || null;
+  }
 
   let currentPage = 1;
 
@@ -1261,7 +1276,7 @@ document.addEventListener('DOMContentLoaded', function(){
         }
         if(c.description) clientDet += '<br><em>Descripción:</em> '+esc(c.description);
       }
-      clientDet += ' <a href="'+selInfo.dataset.clientBase+cid+'" target="_blank">Editar</a>';
+      clientDet += ' <button type="button" class="kvt-edit-client-inline" data-id="'+cid+'">Editar</button>';
     }
     selClientInfo.innerHTML = clientDet;
     let procDet='';
@@ -1275,7 +1290,7 @@ document.addEventListener('DOMContentLoaded', function(){
         }
         if(p.description) procDet += '<br><em>Descripción:</em> '+esc(p.description);
       }
-      procDet += ' <a href="'+selInfo.dataset.processBase+pid+'" target="_blank">Editar</a>';
+      procDet += ' <button type="button" class="kvt-edit-process-inline" data-id="'+pid+'">Editar</button>';
     }
     selProcessInfo.innerHTML = procDet;
   }
@@ -1405,13 +1420,24 @@ document.addEventListener('DOMContentLoaded', function(){
     fetch(KVT_AJAX,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:params.toString()})
       .then(r=>r.json()).then(j=>{
         if(!j.success) return alert('No se pudo cargar la lista.');
+        if(Array.isArray(window.KVT_CLIENT_MAP)){
+          j.data.items.forEach(c=>{
+            const idx = window.KVT_CLIENT_MAP.findIndex(x=>x.id===c.id);
+            if(idx>=0){
+              window.KVT_CLIENT_MAP[idx].name = c.name;
+              window.KVT_CLIENT_MAP[idx].contact_name = c.contact_name;
+              window.KVT_CLIENT_MAP[idx].contact_email = c.contact_email;
+              window.KVT_CLIENT_MAP[idx].contact_phone = c.contact_phone;
+            }
+          });
+        }
         if(clientsList) clientsList.innerHTML = j.data.items.map(c=>{
           return '<div class="kvt-card-mini">'+
             '<h4>'+esc(c.name)+'</h4>'+
             (c.contact_name?'<p>'+esc(c.contact_name)+(c.contact_email?' ('+esc(c.contact_email)+')':'')+'</p>':'')+
             (c.contact_phone?'<p>'+esc(c.contact_phone)+'</p>':'')+
             (c.processes && c.processes.length?'<p>'+esc(c.processes.join(', '))+'</p>':'')+
-            (c.edit_url?'<p><a href="'+escAttr(c.edit_url)+'" target="_blank">Editar</a></p>':'')+
+            '<p><button type="button" class="kvt-edit-client" data-id="'+escAttr(c.id)+'">Editar</button></p>'+
             '</div>';
         }).join('');
       });
@@ -1424,13 +1450,24 @@ document.addEventListener('DOMContentLoaded', function(){
     fetch(KVT_AJAX,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:params.toString()})
       .then(r=>r.json()).then(j=>{
         if(!j.success) return alert('No se pudo cargar la lista.');
+        if(Array.isArray(window.KVT_PROCESS_MAP)){
+          j.data.items.forEach(p=>{
+            const idx = window.KVT_PROCESS_MAP.findIndex(x=>x.id===p.id);
+            if(idx>=0){
+              window.KVT_PROCESS_MAP[idx].name = p.name;
+              window.KVT_PROCESS_MAP[idx].contact_name = p.contact_name;
+              window.KVT_PROCESS_MAP[idx].contact_email = p.contact_email;
+              window.KVT_PROCESS_MAP[idx].description = p.description;
+            }
+          });
+        }
         if(processesList) processesList.innerHTML = j.data.items.map(p=>{
           return '<div class="kvt-card-mini">'+
             '<h4>'+esc(p.name)+'</h4>'+
             (p.client?'<p>Cliente: '+esc(p.client)+'</p>':'')+
             (p.contact_name?'<p>'+esc(p.contact_name)+(p.contact_email?' ('+esc(p.contact_email)+')':'')+'</p>':'')+
             (p.description?'<p>'+esc(p.description)+'</p>':'')+
-            (p.edit_url?'<p><a href="'+escAttr(p.edit_url)+'" target="_blank">Editar</a></p>':'')+
+            '<p><button type="button" class="kvt-edit-process" data-id="'+escAttr(p.id)+'">Editar</button></p>'+
             '</div>';
         }).join('');
       });
@@ -1498,23 +1535,33 @@ document.addEventListener('DOMContentLoaded', function(){
     const clemail = el('#kvt_client_email');
     const clphone = el('#kvt_client_phone');
     const clsubmit= el('#kvt_client_submit');
-    function openClModal(){ clname.value=''; clcont.value=''; clemail.value=''; clphone.value=''; clmodal.style.display='flex'; }
-    function closeClModal(){ clmodal.style.display='none'; }
+    function openClModal(){ clmodal.dataset.edit=''; clname.value=''; clcont.value=''; clemail.value=''; clphone.value=''; clsubmit.textContent='Crear'; clmodal.style.display='flex'; }
+    function openEditClModal(c){ clmodal.dataset.edit=c.id; clname.value=c.name||''; clcont.value=c.contact_name||''; clemail.value=c.contact_email||''; clphone.value=c.contact_phone||''; clsubmit.textContent='Guardar'; clmodal.style.display='flex'; }
+    function closeClModal(){ clmodal.style.display='none'; clmodal.dataset.edit=''; clsubmit.textContent='Crear'; }
     clclose && clclose.addEventListener('click', closeClModal);
     clmodal && clmodal.addEventListener('click', e=>{ if(e.target===clmodal) closeClModal(); });
     clsubmit && clsubmit.addEventListener('click', ()=>{
       const params = new URLSearchParams();
-      params.set('action','kvt_create_client');
+      const editing = clmodal.dataset.edit;
+      params.set('action', editing ? 'kvt_update_client' : 'kvt_create_client');
       params.set('_ajax_nonce', KVT_NONCE);
+      if(editing) params.set('id', editing);
       params.set('name', clname.value||'');
       params.set('contact_name', clcont.value||'');
       params.set('contact_email', clemail.value||'');
       params.set('contact_phone', clphone.value||'');
       fetch(KVT_AJAX,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:params.toString()})
         .then(r=>r.json()).then(j=>{
-          if(!j.success) return alert(j.data && j.data.msg ? j.data.msg : 'No se pudo crear.');
-          alert('Cliente creado (#'+j.data.id+').');
-          closeClModal(); location.reload();
+          if(!j.success) return alert(j.data && j.data.msg ? j.data.msg : 'No se pudo guardar.');
+          if(editing){
+            alert('Cliente actualizado (#'+editing+').');
+            const cid=parseInt(editing,10); const obj=getClientById(cid); if(obj){ obj.name=clname.value||''; obj.contact_name=clcont.value||''; obj.contact_email=clemail.value||''; obj.contact_phone=clphone.value||''; }
+            const opt = selClient ? selClient.querySelector('option[value="'+cid+'"]') : null; if(opt) opt.textContent = clname.value||'';
+            closeClModal(); listClients(); updateSelectedInfo();
+          } else {
+            alert('Cliente creado (#'+j.data.id+').');
+            closeClModal(); location.reload();
+          }
         });
     });
 
@@ -1528,20 +1575,34 @@ document.addEventListener('DOMContentLoaded', function(){
     const pdesc    = el('#kvt_process_desc_new');
     const psubmit  = el('#kvt_process_submit');
     function openPModal(){
+      pmodal.dataset.edit='';
       pname.value='';
       pcli.value='';
       if(pcontact) pcontact.value='';
       if(pemail) pemail.value='';
       if(pdesc) pdesc.value='';
+      psubmit.textContent='Crear';
       pmodal.style.display='flex';
     }
-    function closePModal(){ pmodal.style.display='none'; }
+    function openEditPModal(p){
+      pmodal.dataset.edit=p.id;
+      pname.value=p.name||'';
+      pcli.value=p.client_id?String(p.client_id):'';
+      if(pcontact) pcontact.value=p.contact_name||'';
+      if(pemail) pemail.value=p.contact_email||'';
+      if(pdesc) pdesc.value=p.description||'';
+      psubmit.textContent='Guardar';
+      pmodal.style.display='flex';
+    }
+    function closePModal(){ pmodal.style.display='none'; pmodal.dataset.edit=''; psubmit.textContent='Crear'; }
     pclose && pclose.addEventListener('click', closePModal);
     pmodal && pmodal.addEventListener('click', e=>{ if(e.target===pmodal) closePModal(); });
     psubmit && psubmit.addEventListener('click', ()=>{
       const params = new URLSearchParams();
-      params.set('action','kvt_create_process');
+      const editing = pmodal.dataset.edit;
+      params.set('action', editing ? 'kvt_update_process' : 'kvt_create_process');
       params.set('_ajax_nonce', KVT_NONCE);
+      if(editing) params.set('id', editing);
       params.set('name', pname.value||'');
       params.set('client_id', pcli.value||'');
       if(pcontact) params.set('contact_name', pcontact.value||'');
@@ -1549,11 +1610,22 @@ document.addEventListener('DOMContentLoaded', function(){
       if(pdesc) params.set('description', pdesc.value||'');
       fetch(KVT_AJAX,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:params.toString()})
         .then(r=>r.json()).then(j=>{
-          if(!j.success) return alert(j.data && j.data.msg ? j.data.msg : 'No se pudo crear.');
-          alert('Proceso creado (#'+j.data.id+').');
-          closePModal(); location.reload();
+          if(!j.success) return alert(j.data && j.data.msg ? j.data.msg : 'No se pudo guardar.');
+          if(editing){
+            alert('Proceso actualizado (#'+editing+').');
+            const pid=parseInt(editing,10); const obj=getProcessById(pid); if(obj){ obj.name=pname.value||''; obj.client_id=parseInt(pcli.value||'0',10); obj.contact_name=pcontact?pcontact.value:''; obj.contact_email=pemail?pemail.value:''; obj.description=pdesc?pdesc.value:''; }
+            const opt = selProcess ? selProcess.querySelector('option[value="'+pid+'"]') : null; if(opt) opt.textContent = pname.value||'';
+            closePModal(); listProcesses(); updateSelectedInfo();
+          } else {
+            alert('Proceso creado (#'+j.data.id+').');
+            closePModal(); location.reload();
+          }
         });
     });
+
+    clientsList && clientsList.addEventListener('click', e=>{ const btn = e.target.closest('.kvt-edit-client'); if(btn){ const data = getClientById(btn.dataset.id); if(data) openEditClModal(data); } });
+    processesList && processesList.addEventListener('click', e=>{ const btn = e.target.closest('.kvt-edit-process'); if(btn){ const data = getProcessById(btn.dataset.id); if(data) openEditPModal(data); } });
+    selInfo && selInfo.addEventListener('click', e=>{ if(e.target.classList.contains('kvt-edit-client-inline')){ const d=getClientById(e.target.dataset.id); if(d) openEditClModal(d); } if(e.target.classList.contains('kvt-edit-process-inline')){ const d=getProcessById(e.target.dataset.id); if(d) openEditPModal(d); } });
 
     // Nuevo menu actions
     btnNew && btnNew.addEventListener('click', ()=>{ newMenu.style.display = newMenu.style.display==='flex' ? 'none' : 'flex'; });
@@ -2055,6 +2127,49 @@ JS;
         if ($contact_email) update_term_meta($tid, 'contact_email', $contact_email);
 
         wp_send_json_success(['id'=>$tid]);
+    }
+
+    public function ajax_update_client() {
+        check_ajax_referer('kvt_nonce');
+
+        $id    = isset($_POST['id']) ? intval($_POST['id']) : 0;
+        $name  = isset($_POST['name']) ? sanitize_text_field($_POST['name']) : '';
+        $cname = isset($_POST['contact_name'])  ? sanitize_text_field($_POST['contact_name'])  : '';
+        $cemail= isset($_POST['contact_email']) ? sanitize_email($_POST['contact_email'])      : '';
+        $cphone= isset($_POST['contact_phone']) ? sanitize_text_field($_POST['contact_phone']) : '';
+
+        if (!$id) wp_send_json_error(['msg'=>'ID inválido'],400);
+
+        $term = wp_update_term($id, self::TAX_CLIENT, ['name'=>$name]);
+        if (is_wp_error($term)) wp_send_json_error(['msg'=>$term->get_error_message()],500);
+
+        update_term_meta($id, 'contact_name', $cname);
+        update_term_meta($id, 'contact_email', $cemail);
+        update_term_meta($id, 'contact_phone', $cphone);
+
+        wp_send_json_success(['id'=>$id]);
+    }
+
+    public function ajax_update_process() {
+        check_ajax_referer('kvt_nonce');
+
+        $id    = isset($_POST['id']) ? intval($_POST['id']) : 0;
+        $name  = isset($_POST['name']) ? sanitize_text_field($_POST['name']) : '';
+        $client_id = isset($_POST['client_id']) ? intval($_POST['client_id']) : 0;
+        $contact_name  = isset($_POST['contact_name']) ? sanitize_text_field($_POST['contact_name']) : '';
+        $contact_email = isset($_POST['contact_email']) ? sanitize_email($_POST['contact_email']) : '';
+        $desc = isset($_POST['description']) ? sanitize_textarea_field($_POST['description']) : '';
+
+        if (!$id) wp_send_json_error(['msg'=>'ID inválido'],400);
+
+        $term = wp_update_term($id, self::TAX_PROCESS, ['name'=>$name, 'description'=>$desc]);
+        if (is_wp_error($term)) wp_send_json_error(['msg'=>$term->get_error_message()],500);
+
+        if ($client_id) update_term_meta($id, 'kvt_process_client', $client_id); else delete_term_meta($id, 'kvt_process_client');
+        update_term_meta($id, 'contact_name', $contact_name);
+        update_term_meta($id, 'contact_email', $contact_email);
+
+        wp_send_json_success(['id'=>$id]);
     }
 
       public function ajax_assign_candidate() {
