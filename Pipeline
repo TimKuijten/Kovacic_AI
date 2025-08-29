@@ -735,6 +735,7 @@ cv_uploaded|Fecha de subida");
                 <input type="text" id="kvt_client_contact" placeholder="Persona de contacto">
                 <input type="email" id="kvt_client_email" placeholder="Email">
                 <input type="text" id="kvt_client_phone" placeholder="Teléfono">
+                <textarea id="kvt_client_desc" placeholder="Descripción"></textarea>
                 <button type="button" class="kvt-btn" id="kvt_client_submit">Crear</button>
               </div>
             </div>
@@ -1275,6 +1276,8 @@ document.addEventListener('DOMContentLoaded', function(){
           if(c.contact_phone) clientDet += ', '+esc(c.contact_phone);
         }
         if(c.description) clientDet += '<br><em>Descripción:</em> '+esc(c.description);
+        const procNames = Array.isArray(window.KVT_PROCESS_MAP)?window.KVT_PROCESS_MAP.filter(p=>String(p.client_id)===cid).map(p=>p.name):[];
+        if(procNames.length) clientDet += '<br><em>Procesos:</em> '+esc(procNames.join(', '));
       }
       clientDet += ' <button type="button" class="kvt-edit-client-inline" data-id="'+cid+'">Editar</button>';
     }
@@ -1284,6 +1287,8 @@ document.addEventListener('DOMContentLoaded', function(){
       const p = window.KVT_PROCESS_MAP.find(x=>String(x.id)===pid);
       if(p){
         procDet = '<strong>Proceso:</strong> '+esc(p.name||'');
+        const cl = getClientById(p.client_id);
+        if(cl) procDet += '<br><em>Cliente:</em> '+esc(cl.name||'');
         if(p.contact_name || p.contact_email){
           procDet += '<br><em>Contacto:</em> '+esc(p.contact_name||'');
           if(p.contact_email) procDet += ', '+esc(p.contact_email);
@@ -1428,6 +1433,7 @@ document.addEventListener('DOMContentLoaded', function(){
               window.KVT_CLIENT_MAP[idx].contact_name = c.contact_name;
               window.KVT_CLIENT_MAP[idx].contact_email = c.contact_email;
               window.KVT_CLIENT_MAP[idx].contact_phone = c.contact_phone;
+              window.KVT_CLIENT_MAP[idx].description = c.description;
             }
           });
         }
@@ -1436,12 +1442,13 @@ document.addEventListener('DOMContentLoaded', function(){
             '<h4>'+esc(c.name)+'</h4>'+
             (c.contact_name?'<p>'+esc(c.contact_name)+(c.contact_email?' ('+esc(c.contact_email)+')':'')+'</p>':'')+
             (c.contact_phone?'<p>'+esc(c.contact_phone)+'</p>':'')+
+            (c.description?'<p>'+esc(c.description)+'</p>':'')+
             (c.processes && c.processes.length?'<p>'+esc(c.processes.join(', '))+'</p>':'')+
             '<p><button type="button" class="kvt-edit-client" data-id="'+escAttr(c.id)+'">Editar</button></p>'+
             '</div>';
         }).join('');
       });
-  }
+    }
 
   function listProcesses(){
     const params = new URLSearchParams();
@@ -1458,6 +1465,7 @@ document.addEventListener('DOMContentLoaded', function(){
               window.KVT_PROCESS_MAP[idx].contact_name = p.contact_name;
               window.KVT_PROCESS_MAP[idx].contact_email = p.contact_email;
               window.KVT_PROCESS_MAP[idx].description = p.description;
+              if(typeof p.client_id!=='undefined') window.KVT_PROCESS_MAP[idx].client_id = p.client_id;
             }
           });
         }
@@ -1471,7 +1479,7 @@ document.addEventListener('DOMContentLoaded', function(){
             '</div>';
         }).join('');
       });
-  }
+    }
 
   btnAdd && btnAdd.addEventListener('click', openModal);
   // Create candidate modal
@@ -1534,10 +1542,11 @@ document.addEventListener('DOMContentLoaded', function(){
     const clcont  = el('#kvt_client_contact');
     const clemail = el('#kvt_client_email');
     const clphone = el('#kvt_client_phone');
+    const cldesc  = el('#kvt_client_desc');
     const clsubmit= el('#kvt_client_submit');
-    function openClModal(){ clmodal.dataset.edit=''; clname.value=''; clcont.value=''; clemail.value=''; clphone.value=''; clsubmit.textContent='Crear'; clmodal.style.display='flex'; }
-    function openEditClModal(c){ clmodal.dataset.edit=c.id; clname.value=c.name||''; clcont.value=c.contact_name||''; clemail.value=c.contact_email||''; clphone.value=c.contact_phone||''; clsubmit.textContent='Guardar'; clmodal.style.display='flex'; }
-    function closeClModal(){ clmodal.style.display='none'; clmodal.dataset.edit=''; clsubmit.textContent='Crear'; }
+    function openClModal(){ clmodal.dataset.edit=''; clname.value=''; clcont.value=''; clemail.value=''; clphone.value=''; cldesc.value=''; clsubmit.textContent='Crear'; clmodal.style.display='flex'; }
+    function openEditClModal(c){ clmodal.dataset.edit=c.id; clname.value=c.name||''; clcont.value=c.contact_name||''; clemail.value=c.contact_email||''; clphone.value=c.contact_phone||''; cldesc.value=c.description||''; clsubmit.textContent='Guardar'; clmodal.style.display='flex'; }
+    function closeClModal(){ clmodal.style.display='none'; clmodal.dataset.edit=''; clsubmit.textContent='Crear'; if(cldesc) cldesc.value=''; }
     clclose && clclose.addEventListener('click', closeClModal);
     clmodal && clmodal.addEventListener('click', e=>{ if(e.target===clmodal) closeClModal(); });
     clsubmit && clsubmit.addEventListener('click', ()=>{
@@ -1550,12 +1559,13 @@ document.addEventListener('DOMContentLoaded', function(){
       params.set('contact_name', clcont.value||'');
       params.set('contact_email', clemail.value||'');
       params.set('contact_phone', clphone.value||'');
+      params.set('description', cldesc.value||'');
       fetch(KVT_AJAX,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:params.toString()})
         .then(r=>r.json()).then(j=>{
           if(!j.success) return alert(j.data && j.data.msg ? j.data.msg : 'No se pudo guardar.');
           if(editing){
             alert('Cliente actualizado (#'+editing+').');
-            const cid=parseInt(editing,10); const obj=getClientById(cid); if(obj){ obj.name=clname.value||''; obj.contact_name=clcont.value||''; obj.contact_email=clemail.value||''; obj.contact_phone=clphone.value||''; }
+            const cid=parseInt(editing,10); const obj=getClientById(cid); if(obj){ obj.name=clname.value||''; obj.contact_name=clcont.value||''; obj.contact_email=clemail.value||''; obj.contact_phone=clphone.value||''; obj.description=cldesc.value||''; }
             const opt = selClient ? selClient.querySelector('option[value="'+cid+'"]') : null; if(opt) opt.textContent = clname.value||'';
             closeClModal(); listClients(); updateSelectedInfo();
           } else {
@@ -1974,6 +1984,7 @@ JS;
                 'contact_name'  => get_term_meta($t->term_id,'contact_name',true),
                 'contact_email' => get_term_meta($t->term_id,'contact_email',true),
                 'contact_phone' => get_term_meta($t->term_id,'contact_phone',true),
+                'description'   => wp_strip_all_tags($t->description),
                 'processes'     => wp_list_pluck($procs,'name'),
                 'edit_url'      => admin_url('term.php?taxonomy=' . self::TAX_CLIENT . '&tag_ID=' . $t->term_id),
             ];
@@ -1991,6 +2002,7 @@ JS;
             $items[] = [
                 'id' => $t->term_id,
                 'name' => $t->name,
+                'client_id' => $client_id,
                 'client' => $client_name,
                 'contact_name'  => get_term_meta($t->term_id,'contact_name',true),
                 'contact_email' => get_term_meta($t->term_id,'contact_email',true),
@@ -2096,10 +2108,11 @@ JS;
           $cname = isset($_POST['contact_name'])  ? sanitize_text_field($_POST['contact_name'])  : '';
           $cemail= isset($_POST['contact_email']) ? sanitize_email($_POST['contact_email'])      : '';
           $cphone= isset($_POST['contact_phone']) ? sanitize_text_field($_POST['contact_phone']) : '';
+          $desc  = isset($_POST['description']) ? sanitize_textarea_field($_POST['description']) : '';
 
           if ($name === '') wp_send_json_error(['msg'=>'Nombre requerido'],400);
 
-          $term = wp_insert_term($name, self::TAX_CLIENT);
+          $term = wp_insert_term($name, self::TAX_CLIENT, ['description'=>$desc]);
           if (is_wp_error($term)) wp_send_json_error(['msg'=>$term->get_error_message()],500);
           $tid = (int) $term['term_id'];
           update_term_meta($tid, 'contact_name', $cname);
@@ -2137,10 +2150,11 @@ JS;
         $cname = isset($_POST['contact_name'])  ? sanitize_text_field($_POST['contact_name'])  : '';
         $cemail= isset($_POST['contact_email']) ? sanitize_email($_POST['contact_email'])      : '';
         $cphone= isset($_POST['contact_phone']) ? sanitize_text_field($_POST['contact_phone']) : '';
+        $desc  = isset($_POST['description']) ? sanitize_textarea_field($_POST['description']) : '';
 
         if (!$id) wp_send_json_error(['msg'=>'ID inválido'],400);
 
-        $term = wp_update_term($id, self::TAX_CLIENT, ['name'=>$name]);
+        $term = wp_update_term($id, self::TAX_CLIENT, ['name'=>$name, 'description'=>$desc]);
         if (is_wp_error($term)) wp_send_json_error(['msg'=>$term->get_error_message()],500);
 
         update_term_meta($id, 'contact_name', $cname);
