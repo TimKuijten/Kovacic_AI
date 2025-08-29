@@ -872,6 +872,10 @@ cv_uploaded|Fecha de subida");
           .kvt-card-mini h4{margin:0 0 6px}
           .kvt-mini-panel{display:none;margin-top:8px;border-top:1px dashed #e2e8f0;padding-top:8px}
           .kvt-mini-actions{display:flex;gap:8px;margin-top:8px}
+        .kvt-ai-summary{margin:.2em 0;color:#64748b}
+        .kvt-loading{display:flex;align-items:center;gap:8px;color:#475569}
+        .kvt-loading:before{content:'';width:16px;height:16px;border:2px solid #e5e7eb;border-top-color:#0A212E;border-radius:50%;animation:kvt-spin 1s linear infinite}
+        @keyframes kvt-spin{to{transform:rotate(360deg)}}
         .kvt-modal-pager{display:flex;gap:10px;align-items:center;justify-content:flex-end;margin-top:10px}
         ";
         wp_register_style('kvt-style', false);
@@ -1352,15 +1356,37 @@ document.addEventListener('DOMContentLoaded', function(){
   aiBtn && aiBtn.addEventListener('click', ()=>{
     const desc = (aiInput.value||'').trim();
     if(!desc) return;
+    aiResults.innerHTML = '<div class="kvt-loading">Buscando...</div>';
+    aiBtn.disabled = true;
     const params = new URLSearchParams();
     params.set('action','kvt_ai_search');
     params.set('_ajax_nonce', KVT_NONCE);
     params.set('description', desc);
     fetch(KVT_AJAX,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:params.toString()})
       .then(r=>r.json()).then(j=>{
-        if(!j.success){ alert('No se pudo buscar.'); return; }
-        aiResults.innerHTML = Array.isArray(j.data.items)?j.data.items.map(it=>'<div class="kvt-card-mini"><h4>'+esc(it.name||'')+'</h4><p>'+esc(it.summary||'')+'</p></div>').join('') : '';
-      });
+        aiBtn.disabled = false;
+        if(!j.success){ alert('No se pudo buscar.'); aiResults.innerHTML=''; return; }
+        const items = Array.isArray(j.data.items)?j.data.items:[];
+        if(!items.length){ aiResults.innerHTML = '<p>No hay coincidencias reales.</p>'; return; }
+        aiResults.innerHTML = items.map(it=>{
+          const m = it.meta||{};
+          return '<div class="kvt-card-mini" data-id="'+it.id+'">'+
+            '<h4>'+esc((m.first_name||'')+' '+(m.last_name||''))+(m.cv_url?'<a href="'+escAttr(m.cv_url)+'" class="kvt-cv-link dashicons dashicons-media-document" target="_blank" title="Ver CV"></a>':'')+'</h4>'+
+            '<p class="kvt-ai-summary">'+esc(it.summary||'')+'</p>'+
+            '<div class="kvt-mini-actions"><button type="button" class="kvt-btn kvt-secondary kvt-mini-view">Ver perfil</button></div>'+
+            '<div class="kvt-mini-panel">'+buildProfileHTML({meta:it.meta})+'</div>'+
+          '</div>';
+        }).join('');
+        els('.kvt-mini-view', aiResults).forEach(b=>{
+          b.addEventListener('click', ()=>{
+            const card = b.closest('.kvt-card-mini');
+            const panel = card.querySelector('.kvt-mini-panel');
+            const show = panel.style.display==='block';
+            panel.style.display = show?'none':'block';
+            b.textContent = show?'Ver perfil':'Ocultar';
+          });
+        });
+      }).catch(()=>{ aiBtn.disabled=false; aiResults.innerHTML=''; });
   });
 
   btnToggle && btnToggle.addEventListener('click', ()=>{
@@ -2287,15 +2313,31 @@ JS;
         foreach ($candidates as $c) {
             $cv_text = $this->get_candidate_cv_text($c->ID);
             if (!$cv_text) continue;
-            $summary = $this->openai_match_summary($key, $desc, $cv_text);
-            if ($summary) {
-                $fname = $this->meta_get_compat($c->ID, 'kvt_first_name', ['first_name']);
-                $lname = $this->meta_get_compat($c->ID, 'kvt_last_name', ['last_name']);
-                $name  = trim($fname . ' ' . $lname);
-                if (!$name) $name = $c->post_title;
-                $items[] = ['id' => $c->ID, 'name' => $name, 'summary' => $summary];
+            $res = $this->openai_match_summary($key, $desc, $cv_text);
+            if ($res) {
+                $meta = [
+                    'first_name'  => $this->meta_get_compat($c->ID,'kvt_first_name',['first_name']),
+                    'last_name'   => $this->meta_get_compat($c->ID,'kvt_last_name',['last_name']),
+                    'email'       => $this->meta_get_compat($c->ID,'kvt_email',['email']),
+                    'phone'       => $this->meta_get_compat($c->ID,'kvt_phone',['phone']),
+                    'country'     => $this->meta_get_compat($c->ID,'kvt_country',['country']),
+                    'city'        => $this->meta_get_compat($c->ID,'kvt_city',['city']),
+                    'cv_url'      => $this->meta_get_compat($c->ID,'kvt_cv_url',['cv_url']),
+                    'cv_uploaded' => $this->fmt_date_ddmmyyyy($this->meta_get_compat($c->ID,'kvt_cv_uploaded',['cv_uploaded'])),
+                    'tags'        => $this->meta_get_compat($c->ID,'kvt_tags',['tags']),
+                ];
+                $items[] = [
+                    'id'      => $c->ID,
+                    'meta'    => $meta,
+                    'summary' => $res['summary'],
+                    'score'   => $res['score'],
+                ];
             }
         }
+
+        usort($items, function($a, $b){ return $b['score'] <=> $a['score']; });
+        $items = array_values(array_filter($items, function($it){ return $it['score'] >= 50; }));
+        $items = array_slice($items, 0, 5);
 
         wp_send_json_success(['items' => $items]);
     }
@@ -2336,10 +2378,11 @@ JS;
         $req = [
             'model' => 'gpt-4o-mini',
             'messages' => [
-                ['role' => 'system', 'content' => 'Eres un asistente de reclutamiento.'],
-                ['role' => 'user', 'content' => "Descripción del trabajo:\n$desc\nCV del candidato:\n$cv_text\nResume en tres frases por qué este candidato encaja o no."],
+                ['role' => 'system', 'content' => 'Eres un asistente de reclutamiento. Devuelve JSON con "score" (0-100) y "summary" (breve explicación en español).'],
+                ['role' => 'user', 'content' => "Descripción del trabajo:\n$desc\nCV del candidato:\n$cv_text"],
             ],
             'max_tokens' => 150,
+            'response_format' => ['type' => 'json_object'],
         ];
         $response = wp_remote_post('https://api.openai.com/v1/chat/completions', [
             'headers' => [
@@ -2349,9 +2392,15 @@ JS;
             'body' => wp_json_encode($req),
             'timeout' => 60,
         ]);
-        if (is_wp_error($response)) return '';
+        if (is_wp_error($response)) return null;
         $body = json_decode(wp_remote_retrieve_body($response), true);
-        return isset($body['choices'][0]['message']['content']) ? trim($body['choices'][0]['message']['content']) : '';
+        if (!isset($body['choices'][0]['message']['content'])) return null;
+        $data = json_decode($body['choices'][0]['message']['content'], true);
+        if (!is_array($data) || !isset($data['score'])) return null;
+        return [
+            'score'   => floatval($data['score']),
+            'summary' => isset($data['summary']) ? trim($data['summary']) : '',
+        ];
     }
 
       public function ajax_assign_candidate() {
