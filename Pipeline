@@ -1261,12 +1261,12 @@ document.addEventListener('DOMContentLoaded', function(){
     if(!selInfo) return;
     const cid = selClient && selClient.value ? selClient.value : '';
     const pid = selProcess && selProcess.value ? selProcess.value : '';
-    if(!cid || !pid){ selInfo.style.display='none'; return; }
+    if(!cid && !pid){ selInfo.style.display='none'; return; }
     selInfo.style.display='block';
     selToggle.style.display = 'inline-block';
     selDetails.style.display = 'none';
     let clientDet='';
-    if(Array.isArray(window.KVT_CLIENT_MAP)){
+    if(cid && Array.isArray(window.KVT_CLIENT_MAP)){
       const c = window.KVT_CLIENT_MAP.find(x=>String(x.id)===cid);
       if(c){
         clientDet = '<strong>Cliente:</strong> '+esc(c.name||'');
@@ -1283,7 +1283,7 @@ document.addEventListener('DOMContentLoaded', function(){
     }
     selClientInfo.innerHTML = clientDet;
     let procDet='';
-    if(Array.isArray(window.KVT_PROCESS_MAP)){
+    if(pid && Array.isArray(window.KVT_PROCESS_MAP)){
       const p = window.KVT_PROCESS_MAP.find(x=>String(x.id)===pid);
       if(p){
         procDet = '<strong>Proceso:</strong> '+esc(p.name||'');
@@ -1434,6 +1434,8 @@ document.addEventListener('DOMContentLoaded', function(){
               window.KVT_CLIENT_MAP[idx].contact_email = c.contact_email;
               window.KVT_CLIENT_MAP[idx].contact_phone = c.contact_phone;
               window.KVT_CLIENT_MAP[idx].description = c.description;
+            } else {
+              window.KVT_CLIENT_MAP.push(c);
             }
           });
         }
@@ -1444,7 +1446,7 @@ document.addEventListener('DOMContentLoaded', function(){
             (c.contact_phone?'<p>'+esc(c.contact_phone)+'</p>':'')+
             (c.description?'<p>'+esc(c.description)+'</p>':'')+
             (c.processes && c.processes.length?'<p>'+esc(c.processes.join(', '))+'</p>':'')+
-            '<p><button type="button" class="kvt-edit-client" data-id="'+escAttr(c.id)+'">Editar</button></p>'+
+            '<p><button type="button" class="kvt-edit-client" data-id="'+escAttr(c.id)+'" data-name="'+escAttr(c.name||'')+'" data-contact-name="'+escAttr(c.contact_name||'')+'" data-contact-email="'+escAttr(c.contact_email||'')+'" data-contact-phone="'+escAttr(c.contact_phone||'')+'" data-desc="'+escAttr(c.description||'')+'">Editar</button></p>'+
             '</div>';
         }).join('');
       });
@@ -1466,6 +1468,8 @@ document.addEventListener('DOMContentLoaded', function(){
               window.KVT_PROCESS_MAP[idx].contact_email = p.contact_email;
               window.KVT_PROCESS_MAP[idx].description = p.description;
               if(typeof p.client_id!=='undefined') window.KVT_PROCESS_MAP[idx].client_id = p.client_id;
+            } else {
+              window.KVT_PROCESS_MAP.push(p);
             }
           });
         }
@@ -1475,7 +1479,7 @@ document.addEventListener('DOMContentLoaded', function(){
             (p.client?'<p>Cliente: '+esc(p.client)+'</p>':'')+
             (p.contact_name?'<p>'+esc(p.contact_name)+(p.contact_email?' ('+esc(p.contact_email)+')':'')+'</p>':'')+
             (p.description?'<p>'+esc(p.description)+'</p>':'')+
-            '<p><button type="button" class="kvt-edit-process" data-id="'+escAttr(p.id)+'">Editar</button></p>'+
+            '<p><button type="button" class="kvt-edit-process" data-id="'+escAttr(p.id)+'" data-name="'+escAttr(p.name||'')+'" data-client-id="'+escAttr(p.client_id||'')+'" data-contact-name="'+escAttr(p.contact_name||'')+'" data-contact-email="'+escAttr(p.contact_email||'')+'" data-desc="'+escAttr(p.description||'')+'">Editar</button></p>'+
             '</div>';
         }).join('');
       });
@@ -1633,8 +1637,38 @@ document.addEventListener('DOMContentLoaded', function(){
         });
     });
 
-    clientsList && clientsList.addEventListener('click', e=>{ const btn = e.target.closest('.kvt-edit-client'); if(btn){ const data = getClientById(btn.dataset.id); if(data) openEditClModal(data); } });
-    processesList && processesList.addEventListener('click', e=>{ const btn = e.target.closest('.kvt-edit-process'); if(btn){ const data = getProcessById(btn.dataset.id); if(data) openEditPModal(data); } });
+    clientsList && clientsList.addEventListener('click', e=>{
+      const btn = e.target.closest('.kvt-edit-client');
+      if(!btn) return;
+      let data = getClientById(btn.dataset.id);
+      if(!data){
+        data = {
+          id: parseInt(btn.dataset.id,10),
+          name: btn.dataset.name || '',
+          contact_name: btn.dataset.contactName || '',
+          contact_email: btn.dataset.contactEmail || '',
+          contact_phone: btn.dataset.contactPhone || '',
+          description: btn.dataset.desc || ''
+        };
+      }
+      openEditClModal(data);
+    });
+    processesList && processesList.addEventListener('click', e=>{
+      const btn = e.target.closest('.kvt-edit-process');
+      if(!btn) return;
+      let data = getProcessById(btn.dataset.id);
+      if(!data){
+        data = {
+          id: parseInt(btn.dataset.id,10),
+          name: btn.dataset.name || '',
+          client_id: btn.dataset.clientId?parseInt(btn.dataset.clientId,10):0,
+          contact_name: btn.dataset.contactName || '',
+          contact_email: btn.dataset.contactEmail || '',
+          description: btn.dataset.desc || ''
+        };
+      }
+      openEditPModal(data);
+    });
     selInfo && selInfo.addEventListener('click', e=>{ if(e.target.classList.contains('kvt-edit-client-inline')){ const d=getClientById(e.target.dataset.id); if(d) openEditClModal(d); } if(e.target.classList.contains('kvt-edit-process-inline')){ const d=getProcessById(e.target.dataset.id); if(d) openEditPModal(d); } });
 
     // Nuevo menu actions
