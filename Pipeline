@@ -59,6 +59,10 @@ class Kovacic_Pipeline_Visualizer {
         add_action('wp_ajax_nopriv_kvt_update_profile',[$this, 'ajax_update_profile']);
         add_action('wp_ajax_kvt_list_profiles',        [$this, 'ajax_list_profiles']);
         add_action('wp_ajax_nopriv_kvt_list_profiles', [$this, 'ajax_list_profiles']);
+        add_action('wp_ajax_kvt_list_clients',         [$this, 'ajax_list_clients']);
+        add_action('wp_ajax_nopriv_kvt_list_clients',  [$this, 'ajax_list_clients']);
+        add_action('wp_ajax_kvt_list_processes',       [$this, 'ajax_list_processes']);
+        add_action('wp_ajax_nopriv_kvt_list_processes',[$this, 'ajax_list_processes']);
         add_action('wp_ajax_kvt_clone_profile',        [$this, 'ajax_clone_profile']);
         add_action('wp_ajax_nopriv_kvt_clone_profile', [$this, 'ajax_clone_profile']);
         add_action('wp_ajax_kvt_upload_cv',            [$this, 'ajax_upload_cv']); // subir CV desde UI
@@ -624,53 +628,67 @@ cv_uploaded|Fecha de subida");
               <button type="button" class="kvt-modal-close dashicons dashicons-no-alt" title="Cerrar"></button>
             </div>
             <div class="kvt-modal-body">
-              <div class="kvt-modal-controls">
-                <label>País
-                  <select id="kvt_modal_country" multiple size="4">
-                    <option value="">— Todos —</option>
-                    <?php foreach ($countries as $co): ?>
-                      <option value="<?php echo esc_attr($co); ?>"><?php echo esc_html($co); ?></option>
-                    <?php endforeach; ?>
-                  </select>
-                </label>
-                <label>Ciudad
-                  <select id="kvt_modal_city" multiple size="4">
-                    <option value="">— Todos —</option>
-                    <?php foreach ($cities as $ci): ?>
-                      <option value="<?php echo esc_attr($ci); ?>"><?php echo esc_html($ci); ?></option>
-                    <?php endforeach; ?>
-                  </select>
-                </label>
-                <label>Buscar
-                  <input type="text" id="kvt_modal_search" placeholder="Nombre, email, país o tag…">
-                </label>
-                <div class="kvt-new" id="kvt_new_container">
-                  <button type="button" class="kvt-btn" id="kvt_new_btn">Nuevo</button>
-                  <div class="kvt-new-menu" id="kvt_new_menu">
-                    <button type="button" data-action="candidate">Nuevo candidato</button>
-                    <button type="button" data-action="client">Nuevo cliente</button>
-                    <button type="button" data-action="process">Nuevo proceso</button>
-                  </div>
-                </div>
-                <form id="kvt_export_all_form" method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" target="_blank">
-                  <input type="hidden" name="action" value="kvt_export">
-                  <input type="hidden" name="kvt_export_nonce" value="<?php echo esc_attr(wp_create_nonce('kvt_export')); ?>">
-                  <input type="hidden" name="filter_client" value="">
-                  <input type="hidden" name="filter_process" value="">
-                  <input type="hidden" name="format" id="kvt_export_all_format" value="csv">
-                  <button type="button" class="kvt-btn" id="kvt_export_all_csv">Export CSV</button>
-                  <button type="button" class="kvt-btn" id="kvt_export_all_xls">Export Excel</button>
-                </form>
+              <div class="kvt-tabs">
+                <button type="button" class="kvt-tab active" data-target="candidates">Candidatos</button>
+                <button type="button" class="kvt-tab" data-target="clients">Clientes</button>
+                <button type="button" class="kvt-tab" data-target="processes">Procesos</button>
               </div>
-              <div id="kvt_modal_list" class="kvt-modal-list"></div>
-              <div class="kvt-modal-pager">
-                <button type="button" class="kvt-btn kvt-secondary" id="kvt_modal_prev">Anterior</button>
-                <span id="kvt_modal_pageinfo"></span>
-                <button type="button" class="kvt-btn kvt-secondary" id="kvt_modal_next">Siguiente</button>
+              <div class="kvt-new" id="kvt_new_container">
+                <button type="button" class="kvt-btn" id="kvt_new_btn">Nuevo</button>
+                <div class="kvt-new-menu" id="kvt_new_menu">
+                  <button type="button" data-action="candidate">Nuevo candidato</button>
+                  <button type="button" data-action="client">Nuevo cliente</button>
+                  <button type="button" data-action="process">Nuevo proceso</button>
+                </div>
+              </div>
+              <div id="kvt_tab_candidates" class="kvt-tab-panel active">
+                <div class="kvt-modal-controls">
+                  <label>País
+                    <select id="kvt_modal_country" multiple size="4">
+                      <option value="">— Todos —</option>
+                      <?php foreach ($countries as $co): ?>
+                        <option value="<?php echo esc_attr($co); ?>"><?php echo esc_html($co); ?></option>
+                      <?php endforeach; ?>
+                    </select>
+                  </label>
+                  <label>Ciudad
+                    <select id="kvt_modal_city" multiple size="4">
+                      <option value="">— Todos —</option>
+                      <?php foreach ($cities as $ci): ?>
+                        <option value="<?php echo esc_attr($ci); ?>"><?php echo esc_html($ci); ?></option>
+                      <?php endforeach; ?>
+                    </select>
+                  </label>
+                  <label>Buscar
+                    <input type="text" id="kvt_modal_search" placeholder="Nombre, email, país o tag…">
+                  </label>
+                  <form id="kvt_export_all_form" method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" target="_blank">
+                    <input type="hidden" name="action" value="kvt_export">
+                    <input type="hidden" name="kvt_export_nonce" value="<?php echo esc_attr(wp_create_nonce('kvt_export')); ?>">
+                    <input type="hidden" name="filter_client" value="">
+                    <input type="hidden" name="filter_process" value="">
+                    <input type="hidden" name="format" id="kvt_export_all_format" value="csv">
+                    <button type="button" class="kvt-btn" id="kvt_export_all_csv">Export CSV</button>
+                    <button type="button" class="kvt-btn" id="kvt_export_all_xls">Export Excel</button>
+                  </form>
+                </div>
+                <div id="kvt_modal_list" class="kvt-modal-list"></div>
+                <div class="kvt-modal-pager">
+                  <button type="button" class="kvt-btn kvt-secondary" id="kvt_modal_prev">Anterior</button>
+                  <span id="kvt_modal_pageinfo"></span>
+                  <button type="button" class="kvt-btn kvt-secondary" id="kvt_modal_next">Siguiente</button>
+                </div>
+              </div>
+              <div id="kvt_tab_clients" class="kvt-tab-panel">
+                <div id="kvt_clients_list" class="kvt-modal-list"></div>
+              </div>
+              <div id="kvt_tab_processes" class="kvt-tab-panel">
+                <div id="kvt_processes_list" class="kvt-modal-list"></div>
               </div>
             </div>
           </div>
-        
+        </div>
+
         <!-- Create Candidate Modal -->
         <div class="kvt-modal" id="kvt_create_modal" style="display:none">
           <div class="kvt-modal-content">
@@ -807,6 +825,11 @@ cv_uploaded|Fecha de subida");
         .kvt-modal-header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #e5e7eb}
         .kvt-modal-body{padding:12px 16px}
         .kvt-modal-close{background:none;border:none;cursor:pointer}
+        .kvt-tabs{display:flex;gap:8px;margin-bottom:12px}
+        .kvt-tabs button{background:#eef2f7;color:#0A212E;border:1px solid #e5e7eb;border-radius:8px;padding:8px 12px;cursor:pointer}
+        .kvt-tabs button.active{background:#0A212E;color:#fff}
+        .kvt-tab-panel{display:none}
+        .kvt-tab-panel.active{display:block}
         .kvt-modal-controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
         .kvt-modal-controls select,.kvt-modal-controls input{padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px}
         .kvt-modal-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;max-height:420px;overflow:auto}
@@ -876,8 +899,25 @@ document.addEventListener('DOMContentLoaded', function(){
   const modalNext  = el('#kvt_modal_next', modal);
   const modalPage  = el('#kvt_modal_pageinfo', modal);
   const modalSearch= el('#kvt_modal_search', modal);
+  const tabs = els('.kvt-tab', modal);
+  const tabCandidates = el('#kvt_tab_candidates', modal);
+  const tabClients = el('#kvt_tab_clients', modal);
+  const tabProcesses = el('#kvt_tab_processes', modal);
+  const clientsList = el('#kvt_clients_list', modal);
+  const processesList = el('#kvt_processes_list', modal);
 
   let currentPage = 1;
+
+  function switchTab(target){
+    if(tabCandidates) tabCandidates.classList.toggle('active', target==='candidates');
+    if(tabClients) tabClients.classList.toggle('active', target==='clients');
+    if(tabProcesses) tabProcesses.classList.toggle('active', target==='processes');
+    tabs.forEach(b=>b.classList.toggle('active', b.dataset.target===target));
+    if(target==='clients') listClients();
+    if(target==='processes') listProcesses();
+    if(target==='candidates') listProfiles(1);
+  }
+  tabs.forEach(b=>b.addEventListener('click', ()=>switchTab(b.dataset.target)));
 
   function openModal(){
     modal.style.display = 'flex';
@@ -892,7 +932,7 @@ document.addEventListener('DOMContentLoaded', function(){
       const allOpt = modalCity.querySelector('option[value=""]');
       if(allOpt) allOpt.selected = true;
     }
-    listProfiles(1);
+    switchTab('candidates');
   }
   function closeModal(){ modal.style.display = 'none'; }
   modalClose && modalClose.addEventListener('click', closeModal);
@@ -1357,6 +1397,45 @@ document.addEventListener('DOMContentLoaded', function(){
   });
   let mto=null;
   modalSearch && modalSearch.addEventListener('input', ()=>{ clearTimeout(mto); mto=setTimeout(()=>listProfiles(1), 300); });
+
+  function listClients(){
+    const params = new URLSearchParams();
+    params.set('action','kvt_list_clients');
+    params.set('_ajax_nonce', KVT_NONCE);
+    fetch(KVT_AJAX,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:params.toString()})
+      .then(r=>r.json()).then(j=>{
+        if(!j.success) return alert('No se pudo cargar la lista.');
+        if(clientsList) clientsList.innerHTML = j.data.items.map(c=>{
+          return '<div class="kvt-card-mini">'+
+            '<h4>'+esc(c.name)+'</h4>'+
+            (c.contact_name?'<p>'+esc(c.contact_name)+(c.contact_email?' ('+esc(c.contact_email)+')':'')+'</p>':'')+
+            (c.contact_phone?'<p>'+esc(c.contact_phone)+'</p>':'')+
+            (c.processes && c.processes.length?'<p>'+esc(c.processes.join(', '))+'</p>':'')+
+            (c.edit_url?'<p><a href="'+escAttr(c.edit_url)+'" target="_blank">Editar</a></p>':'')+
+            '</div>';
+        }).join('');
+      });
+  }
+
+  function listProcesses(){
+    const params = new URLSearchParams();
+    params.set('action','kvt_list_processes');
+    params.set('_ajax_nonce', KVT_NONCE);
+    fetch(KVT_AJAX,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:params.toString()})
+      .then(r=>r.json()).then(j=>{
+        if(!j.success) return alert('No se pudo cargar la lista.');
+        if(processesList) processesList.innerHTML = j.data.items.map(p=>{
+          return '<div class="kvt-card-mini">'+
+            '<h4>'+esc(p.name)+'</h4>'+
+            (p.client?'<p>Cliente: '+esc(p.client)+'</p>':'')+
+            (p.contact_name?'<p>'+esc(p.contact_name)+(p.contact_email?' ('+esc(p.contact_email)+')':'')+'</p>':'')+
+            (p.description?'<p>'+esc(p.description)+'</p>':'')+
+            (p.edit_url?'<p><a href="'+escAttr(p.edit_url)+'" target="_blank">Editar</a></p>':'')+
+            '</div>';
+        }).join('');
+      });
+  }
+
   btnAdd && btnAdd.addEventListener('click', openModal);
   // Create candidate modal
     const cmodal = el('#kvt_create_modal');
@@ -1803,6 +1882,51 @@ JS;
             ];
         }
         wp_send_json_success(['items'=>$items,'pages'=>$q->max_num_pages]);
+    }
+
+    public function ajax_list_clients() {
+        check_ajax_referer('kvt_nonce');
+        $terms = get_terms(['taxonomy'=>self::TAX_CLIENT,'hide_empty'=>false]);
+        $items = [];
+        foreach ($terms as $t) {
+            $procs = get_terms([
+                'taxonomy'=>self::TAX_PROCESS,
+                'hide_empty'=>false,
+                'meta_query'=>[
+                    ['key'=>'kvt_process_client','value'=>$t->term_id]
+                ]
+            ]);
+            $items[] = [
+                'id' => $t->term_id,
+                'name' => $t->name,
+                'contact_name'  => get_term_meta($t->term_id,'contact_name',true),
+                'contact_email' => get_term_meta($t->term_id,'contact_email',true),
+                'contact_phone' => get_term_meta($t->term_id,'contact_phone',true),
+                'processes'     => wp_list_pluck($procs,'name'),
+                'edit_url'      => admin_url('term.php?taxonomy=' . self::TAX_CLIENT . '&tag_ID=' . $t->term_id),
+            ];
+        }
+        wp_send_json_success(['items'=>$items]);
+    }
+
+    public function ajax_list_processes() {
+        check_ajax_referer('kvt_nonce');
+        $terms = get_terms(['taxonomy'=>self::TAX_PROCESS,'hide_empty'=>false]);
+        $items = [];
+        foreach ($terms as $t) {
+            $client_id = (int) get_term_meta($t->term_id,'kvt_process_client',true);
+            $client_name = $client_id ? get_term($client_id)->name : '';
+            $items[] = [
+                'id' => $t->term_id,
+                'name' => $t->name,
+                'client' => $client_name,
+                'contact_name'  => get_term_meta($t->term_id,'contact_name',true),
+                'contact_email' => get_term_meta($t->term_id,'contact_email',true),
+                'description'   => $t->description,
+                'edit_url'      => admin_url('term.php?taxonomy=' . self::TAX_PROCESS . '&tag_ID=' . $t->term_id),
+            ];
+        }
+        wp_send_json_success(['items'=>$items]);
     }
 
     public function ajax_clone_profile() {
