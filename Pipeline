@@ -2356,7 +2356,20 @@ JS;
         $text = '';
         if ($ext === 'pdf') {
             if (function_exists('shell_exec')) {
+                // First try to extract text from a textual PDF
                 $text = shell_exec('pdftotext ' . escapeshellarg($file) . ' -');
+                if (!trim($text)) {
+                    // Fallback to OCR for image-based PDFs if pdftotext produced no output
+                    $img_base = $file . '-ocr';
+                    @shell_exec('pdftoppm ' . escapeshellarg($file) . ' ' . escapeshellarg($img_base));
+                    $i = 1;
+                    while (file_exists($img_base . '-' . $i . '.ppm')) {
+                        $ocr = shell_exec('tesseract ' . escapeshellarg($img_base . '-' . $i . '.ppm') . ' stdout');
+                        if ($ocr) $text .= $ocr . "\n";
+                        @unlink($img_base . '-' . $i . '.ppm');
+                        $i++;
+                    }
+                }
             }
         } elseif ($ext === 'docx') {
             if (class_exists('ZipArchive')) {
